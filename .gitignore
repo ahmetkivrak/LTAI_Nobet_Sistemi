@@ -1,0 +1,20 @@
+# Flutter
+ltai_nobet_sistemi/.dart_tool/
+ltai_nobet_sistemi/build/
+ltai_nobet_sistemi/.flutter-plugins
+ltai_nobet_sistemi/.flutter-plugins-dependencies
+ltai_nobet_sistemi/.packages
+ltai_nobet_sistemi/pubspec.lock
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Gemini/Agent data
+.gemini/
+.agents/
