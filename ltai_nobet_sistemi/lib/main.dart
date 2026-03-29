@@ -119,7 +119,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
   List<dynamic> ltaiNotamlari = [];
   String notamGuncelleme = "";
   
-  final String gasUrl = "https://script.google.com/macros/s/AKfycbxJtuxRDj1aDN1NJAI8k_Q-2zWKn49xG9EEE033opGTpdlzW3dg3iW8i4J3DRb9-DoltA/exec";
+  final String gasUrl = "https://script.google.com/macros/s/AKfycbwbwRw2XQTpnX9MgN4zJM6QDUg5JX_q4mqJ84B_ODPmkZAM00eDA4iUHDOuVzcPNIfr4A/exec";
 
   final List<String> tumPersonelHavuzu = ["GP", "AI", "AK", "BE", "MK", "AN", "BA", "BL", "DE", "MI", "FL", "YT", "GI", "AP", "DC"];
   
