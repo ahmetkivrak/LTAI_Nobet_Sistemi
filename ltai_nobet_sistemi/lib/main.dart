@@ -118,6 +118,8 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
   bool _veriCekiliyor = false;
   List<dynamic> ltaiNotamlari = [];
   String notamGuncelleme = "";
+  String trafikGuncelleme = "";
+  String metGuncelleme = "";
   
   final String gasUrl = "https://script.google.com/macros/s/AKfycbwbwRw2XQTpnX9MgN4zJM6QDUg5JX_q4mqJ84B_ODPmkZAM00eDA4iUHDOuVzcPNIfr4A/exec";
 
@@ -149,13 +151,13 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
   Map<String, int> supSayisi = {}; Map<String, int> twrSayisi = {}; Map<String, int> gndSayisi = {}; Map<String, int> delSayisi = {};
 
   List<BordArsivi> tamArsiv = [];
-  bool _ilkAcilis = true; 
+
 
   DateTime _seciliTakvimTarihi = DateTime.now();
   String get _aktifTarihStr => "${_seciliTakvimTarihi.day.toString().padLeft(2, '0')}.${_seciliTakvimTarihi.month.toString().padLeft(2, '0')}.${_seciliTakvimTarihi.year}";
   DateTime get _aktifTarih => _seciliTakvimTarihi;
 
-  // YENİ: Sektör Sıralaması TWR -> DEL -> GND -> SUP
+  // Sektör Sıralaması: TWR -> DEL -> GND -> SUP
   List<String> getSektorlerByLevel(double level) {
     if (level <= 3.0) return ["TWR", "DEL", "SUP"]; 
     if (level <= 4.0) return ["TWR", "DEL", "GND", "SUP"]; 
@@ -239,6 +241,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
           setState(() {
             ltaiNotamlari = decoded['notamlar'] ?? [];
             notamGuncelleme = decoded['notamGuncelleme'] ?? "";
+            trafikGuncelleme = decoded['guncelleme'] ?? DateFormat('dd.MM.yyyy HH:mm').format(DateTime.now());
           });
           _tariheGoreVerileriGuncelle();
         }
@@ -246,7 +249,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     } catch (e) {
       debugPrint("Canlı Veri Çekim Hatası (Bulut): $e");
     } finally {
-      setState(() { _veriCekiliyor = false; _ilkAcilis = false; });
+      setState(() { _veriCekiliyor = false; });
     }
   }
 
@@ -267,6 +270,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         hamSaatlikHavaVerisi = data['hourly']; 
+        metGuncelleme = DateFormat('dd.MM.yyyy HH:mm').format(DateTime.now());
         _havayiTariheGoreFiltrele(); 
       }
     } catch (e) { debugPrint("Canlı Veri Çekim Hatası: $e"); }
@@ -476,7 +480,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     }
   }
 
-  // YENİ: 18 NÖBETLİK OTONOM HAFIZA (İzinlileri ezmez)
+  // 18 nöbetlik otonom hafıza (izinlileri ezmez)
   double _getArsivYorgunlukOrtalamasi(String k) {
     int c = 0;
     int totalDk = 0;
@@ -500,121 +504,373 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     return totalDk / c;
   }
 
-  void _adaletBekcisi(Map<int, Map<String, String>> plan, int majT, List<String> aktifPersonel, Set<String> aktifBK, Map<int, Map<String, String>> kilitler) {
-    bool degisimOldu = true;
-    int maksimumDeneme = 100; 
+  // ════════════════════════════════════════════════
+  // ALGORİTMA v3 — NUMARALI ZİGZAG DÖNGÜ
+  //   Adım 1: Zigzag numaralı şablon oluştur
+  //   Adım 2: Kişileri numaralara ata (SUP havuzu öncelikli)
+  //   Adım 3: İnce ayar (aynı pozisyon tekrarını grup içi swap ile çöz)
+  // ════════════════════════════════════════════════
 
-    bool isLocked(int hIdx, String p) { return kilitler[hIdx] != null && kilitler[hIdx]!.containsKey(p); }
-
-    bool pesPeseUygun(String kisi, int i, {int? ignoreI}) {
-      if (i > 0 && (i - 1) != ignoreI && plan[i - 1] != null && plan[i - 1]!.containsValue(kisi)) return false;
-      if (i < saatler.length - 1 && (i + 1) != ignoreI && plan[i + 1] != null && plan[i + 1]!.containsValue(kisi)) return false;
-      if (i == saatler.length - 1 && aktifBK.contains(kisi)) return false; 
-      return true;
+  /// Phase 1: Her kişi hangi slot(lar)da çalışacak?
+  /// Döndürür: {slotIndex: [kişi1, kişi2, kişi3], ...}
+  Map<int, List<String>> _phase1SlotAtama(List<String> aktifPersonel, int majT, Set<String> aktifBK) {
+    int slotCount = saatler.length;
+    
+    // Her kişinin hedef tur sayısını belirle
+    int toplamSandalye = 0;
+    for (int i = 0; i < slotCount; i++) {
+      double sLvl = tamOtomatikDagitim 
+          ? _getIdealLevel(anlikTrafik[i % anlikTrafik.length].genelToplam) 
+          : gunlukSeviye;
+      toplamSandalye += getSektorlerByLevel(sLvl).length;
     }
+    
+    int aCount = aktifPersonel.length;
+    int baseTurLocal = aCount > 0 ? (toplamSandalye ~/ aCount) : 0;
+    int remLocal = aCount > 0 ? (toplamSandalye % aCount) : 0;
+    
+    // HAMAL/ENSECİ sayısını kontrol et
+    int hamalSayisi = aktifPersonel.where((k) => gunlukDurum[k]!.contains('HAMAL')).length;
+    int enseciSayisi = aktifPersonel.where((k) => gunlukDurum[k]!.contains('ENSECİ')).length;
+    
+    Map<String, int> hedefTur = {};
+    
+    if (hamalSayisi == 0 && enseciSayisi == 0 && remLocal > 0) {
+      // Kimse seçilmemiş → arşiv yorgunluğuna göre otomatik karınca
+      List<String> sirali = List.from(aktifPersonel);
+      sirali.sort((a, b) => _getArsivYorgunlukOrtalamasi(a).compareTo(_getArsivYorgunlukOrtalamasi(b)));
+      for (int i = 0; i < sirali.length; i++) {
+        hedefTur[sirali[i]] = i < remLocal ? baseTurLocal + 1 : baseTurLocal;
+      }
+    } else {
+      for (var k in aktifPersonel) {
+        if (gunlukDurum[k]!.contains('HAMAL')) {
+          hedefTur[k] = majT + 1;
+        } else if (gunlukDurum[k]!.contains('ENSECİ')) {
+          hedefTur[k] = (majT - 1).clamp(1, slotCount);
+        } else {
+          hedefTur[k] = majT;
+        }
+      }
+      // Eksik sandalye kontrolü
+      int toplamHedef = hedefTur.values.fold(0, (a, b) => a + b);
+      int eksik = toplamSandalye - toplamHedef;
+      if (eksik > 0) {
+        List<String> adaylar = aktifPersonel.where((k) => !gunlukDurum[k]!.contains('HAMAL')).toList();
+        adaylar.sort((a, b) => _getArsivYorgunlukOrtalamasi(a).compareTo(_getArsivYorgunlukOrtalamasi(b)));
+        for (int i = 0; i < eksik && i < adaylar.length; i++) {
+          hedefTur[adaylar[i]] = hedefTur[adaylar[i]]! + 1;
+        }
+      }
+    }
+    
+    for (var k in aktifPersonel) {
+      if (hedefTur[k] == null || hedefTur[k]! < 1) hedefTur[k] = 1;
+    }
+    
 
-    while (degisimOldu && maksimumDeneme > 0) {
-      degisimOldu = false;
-      maksimumDeneme--;
+    
+    // Slot kapasiteleri
+    List<int> slotKapasiteleri = [];
+    for (int i = 0; i < slotCount; i++) {
+      double sLvl = tamOtomatikDagitim 
+          ? _getIdealLevel(anlikTrafik[i % anlikTrafik.length].genelToplam) 
+          : gunlukSeviye;
+      slotKapasiteleri.add(getSektorlerByLevel(sLvl).length);
+    }
+    
+    // ═══════════════════════════════════════════════════════════
+    // NUMARALI DÖNGÜ: Kişileri arşiv yorgunluğuna göre sırala,
+    // sonra zigzag şablona göre slotlara yerleştir
+    // ═══════════════════════════════════════════════════════════
+    
+    // Kişileri sırala: arşiv yorgunluk (az çalışan önce)
+    List<String> siraliPersonel = List.from(aktifPersonel);
+    siraliPersonel.sort((a, b) => _getArsivYorgunlukOrtalamasi(a).compareTo(_getArsivYorgunlukOrtalamasi(b)));
+    
+    // İlk/Son/Orta seçili mantığı — sınıf seviyesi Set'lerden oku (shadow bug düzeltmesi)
+    Set<String> aktifIlkSecilenler = this.ilkSecilenler.where((k) => aktifPersonel.contains(k)).toSet();
+    Set<String> aktifSonSecilenler = this.sonSecilenler.where((k) => aktifPersonel.contains(k)).toSet();
+    Set<String> aktifOrtaSecilenler = this.ortaSecilenler.where((k) => aktifPersonel.contains(k)).toSet();
+    
+    // BK son slotta oturamaz
+    // İlk seçili → sıranın başına al, Son seçili → sıranın sonuna al
+    // Orta seçili → ne başa ne sona, ortaya yerleştir (ilk ve son slota giremez)
+    List<String> bOnce = siraliPersonel.where((k) => aktifIlkSecilenler.contains(k)).toList();
+    List<String> bSonra = siraliPersonel.where((k) => aktifSonSecilenler.contains(k)).toList();
+    List<String> bOrta = siraliPersonel.where((k) => aktifOrtaSecilenler.contains(k) && !aktifIlkSecilenler.contains(k) && !aktifSonSecilenler.contains(k)).toList();
+    List<String> bNormal = siraliPersonel.where((k) => !aktifIlkSecilenler.contains(k) && !aktifSonSecilenler.contains(k) && !aktifOrtaSecilenler.contains(k)).toList();
+    // Sıralama: İLK → Normal(1.yarı) → ORTA → Normal(2.yarı) → SON
+    int normalYari = bNormal.length ~/ 2;
+    siraliPersonel = [...bOnce, ...bNormal.sublist(0, normalYari), ...bOrta, ...bNormal.sublist(normalYari), ...bSonra];
+    
+    // Sonuç haritaları
+    Map<int, List<String>> slotAtamalari = {for (int i = 0; i < slotCount; i++) i: []};
+    Map<String, List<int>> kisiSlotlari = {for (var k in aktifPersonel) k: []};
+    
+    // Numaralı döngü: sıralı kişi listesinden slotlara at
+    int kisiBas = 0; // Hangi kişiden başladık
+    
+    for (int slot = 0; slot < slotCount; slot++) {
+      int kap = slotKapasiteleri[slot];
+      int eklenen = 0;
+      
+      while (eklenen < kap && kisiBas < siraliPersonel.length * 3) {
+        // Döngüsel: tüm listeyi tekrar tekrar tara
+        String k = siraliPersonel[kisiBas % siraliPersonel.length];
+        kisiBas++;
+        
+        // Zaten bu slotta mı?
+        if (slotAtamalari[slot]!.contains(k)) continue;
+        // Hedef tur aşıldı mı?
+        if (kisiSlotlari[k]!.length >= hedefTur[k]!) continue;
+        // K1: Arka arkaya yasak
+        if (slot > 0 && slotAtamalari[slot - 1]!.contains(k)) continue;
+        // K5: BK son slotta oturamaz
+        if (slot == slotCount - 1 && aktifBK.contains(k)) continue;
+        // K6: ORTA seçili → ilk ve son slota giremez (geç gelip erken gidiyor)
+        if (aktifOrtaSecilenler.contains(k) && (slot == 0 || slot == slotCount - 1)) continue;
+        
+        slotAtamalari[slot]!.add(k);
+        kisiSlotlari[k]!.add(slot);
+        eklenen++;
+      }
+    }
+    
+    // Boş kalan slotları doldur (hedefTur aşılanlarla)
+    for (int slot = 0; slot < slotCount; slot++) {
+      while (slotAtamalari[slot]!.length < slotKapasiteleri[slot]) {
+        String? bestK;
+        int bestScore = -999999;
+        
+        for (var k in siraliPersonel) {
+          if (slotAtamalari[slot]!.contains(k)) continue;
+          if (slot > 0 && slotAtamalari[slot - 1]!.contains(k)) continue;
+          if (slot < slotCount - 1 && slotAtamalari[slot + 1]!.contains(k)) continue;
+          if (slot == slotCount - 1 && aktifBK.contains(k)) continue;
+          // K6: ORTA seçili → ilk ve son slota giremez
+          if (aktifOrtaSecilenler.contains(k) && (slot == 0 || slot == slotCount - 1)) continue;
+          
+          int score = 0;
+          // Hedef aşımı az olanı tercih et
+          int ekstra = kisiSlotlari[k]!.length - hedefTur[k]!;
+          score -= ekstra * 5000;
+          // Boşluk bonusu
+          if (kisiSlotlari[k]!.isNotEmpty) {
+            score += (slot - kisiSlotlari[k]!.last).abs() * 1000;
+          } else {
+            score += 3000;
+          }
+          score -= (_getArsivYorgunlukOrtalamasi(k) * 10).toInt();
+          if (score > bestScore) { bestScore = score; bestK = k; }
+        }
+        
+        if (bestK != null) {
+          slotAtamalari[slot]!.add(bestK);
+          kisiSlotlari[bestK]!.add(slot);
+        } else {
+          break;
+        }
+      }
+    }
+    
+    return slotAtamalari;
+  }
 
-      List<String> karincalar = aktifPersonel.where((k) => (turSayisi[k] ?? 0) > majT).toList();
-      List<String> bocekler = aktifPersonel.where((k) => (turSayisi[k] ?? 0) < majT && (turSayisi[k] ?? 0) > 0).toList(); 
-
-      if (karincalar.isEmpty || bocekler.isEmpty) break;
-
-      for (String karinca in karincalar) {
-        if (degisimOldu) break;
-
-        for (String bocek in bocekler) {
-          if (degisimOldu) break;
-
-          for (int i = 0; i < saatler.length; i++) {
-            if (degisimOldu) break;
-            if (plan[i] == null) continue;
-
-            String? karincaGorevi;
-            plan[i]!.forEach((gorev, kisi) { if (kisi == karinca) karincaGorevi = gorev; });
-            if (karincaGorevi == null) continue;
-            
-            if (isLocked(i, karincaGorevi!)) continue;
-
-            String coreGorev = karincaGorevi!.split('_')[0].split('/')[0];
-
-            if (i == 0 && ilkSecilenler.contains(karinca)) continue;
-            if (i == saatler.length - 1 && sonSecilenler.contains(karinca)) continue;
-
-            if (!plan[i]!.containsValue(bocek) && pesPeseUygun(bocek, i) && _vizeKontrol(bocek, karincaGorevi!, coreGorev, acilDurum: true, aktifPersonelHavuzu: aktifPersonel)) {
-              plan[i]![karincaGorevi!] = bocek;
-              _istatistikleriYenidenHesapla(plan);
-              degisimOldu = true;
+  /// Phase 2: Zigzag pozisyon atama + SUP havuzu + ince ayar
+  /// Döndürür: {slotIndex: {pozisyon: kişi, ...}, ...}
+  Map<int, Map<String, String>> _phase2PozisyonAtama(
+    Map<int, List<String>> slotAtamalari, 
+    List<String> aktifPersonel
+  ) {
+    int slotCount = saatler.length;
+    Map<int, Map<String, String>> gunlukPlan = {};
+    
+    // Kişinin bugün hangi pozisyonlarda oturduğunu takip et
+    Map<String, List<String>> bugunkuPozisyonlar = {for (var k in aktifPersonel) k: []};
+    
+    // SUP mikro seçili kişiler (yetkilerinde SUP olanlar)
+    Set<String> supHavuzu = aktifPersonel.where((k) => yetkiler[k]!.contains('SUP')).toSet();
+    Set<String> supYazmislar = {};
+    
+    for (int slot = 0; slot < slotCount; slot++) {
+      double sLvl = tamOtomatikDagitim 
+          ? _getIdealLevel(anlikTrafik[slot % anlikTrafik.length].genelToplam) 
+          : gunlukSeviye;
+      List<String> pozisyonlar = getSektorlerByLevel(sLvl);
+      List<String> kisiler = List.from(slotAtamalari[slot] ?? []);
+      
+      // Zigzag yön: çift slot = ileri, tek slot = ters
+      bool ters = slot % 2 == 1;
+      List<String> pozSirasi = ters ? pozisyonlar.reversed.toList() : List.from(pozisyonlar);
+      
+      Map<String, String> atama = {for (var p in pozisyonlar) p: "-"};
+      Set<String> atanmislar = {};
+      
+      // ─────────────────────────────────────────────
+      // ADIM 1: SUP koltuğunu önce doldur
+      // ─────────────────────────────────────────────
+      String? supPos = pozisyonlar.firstWhere(
+        (p) => p.split('_')[0].split('/')[0] == 'SUP', orElse: () => '');
+      
+      if (supPos.isNotEmpty) {
+        String? supKisi;
+        
+        // Öncelik 1: SUP havuzunda olup henüz SUP yazmamış
+        for (var k in kisiler) {
+          if (atanmislar.contains(k)) continue;
+          if (supHavuzu.contains(k) && !supYazmislar.contains(k)) {
+            supKisi = k;
+            break;
+          }
+        }
+        // Öncelik 2: SUP havuzunda olan (zaten yazmış ama en az yazan)
+        if (supKisi == null) {
+          for (var k in kisiler) {
+            if (atanmislar.contains(k)) continue;
+            if (supHavuzu.contains(k)) {
+              supKisi = k;
               break;
             }
-
-            for (var entry in plan[i]!.entries) {
-              if (degisimOldu) break;
-              String arabulucuGorevi = entry.key;
-              String arabulucuKisi = entry.value;
-              String arabulucuCore = arabulucuGorevi.split('_')[0].split('/')[0];
-
-              if (isLocked(i, arabulucuGorevi)) continue;
-
-              if (arabulucuKisi == karinca || arabulucuKisi == "-") continue;
-              if (i == 0 && ilkSecilenler.contains(arabulucuKisi)) continue;
-              if (i == saatler.length - 1 && sonSecilenler.contains(arabulucuKisi)) continue;
-
-              if (!plan[i]!.containsValue(bocek) && pesPeseUygun(bocek, i) && 
-                  _vizeKontrol(arabulucuKisi, karincaGorevi!, coreGorev, acilDurum: true, aktifPersonelHavuzu: aktifPersonel) && 
-                  _vizeKontrol(bocek, arabulucuGorevi, arabulucuCore, acilDurum: true, aktifPersonelHavuzu: aktifPersonel)) { 
-                
-                plan[i]![karincaGorevi!] = arabulucuKisi;
-                plan[i]![arabulucuGorevi] = bocek;
-                _istatistikleriYenidenHesapla(plan);
-                degisimOldu = true;
-                break;
-              }
+          }
+        }
+        // Öncelik 3: Gruptaki herhangi biri
+        if (supKisi == null) {
+          for (var k in kisiler) {
+            if (!atanmislar.contains(k)) { supKisi = k; break; }
+          }
+        }
+        
+        if (supKisi != null) {
+          atama[supPos] = supKisi;
+          atanmislar.add(supKisi);
+          supYazmislar.add(supKisi);
+          bugunkuPozisyonlar[supKisi]!.add(supPos);
+        }
+      }
+      
+      // ─────────────────────────────────────────────
+      // ADIM 2: Kalan pozisyonları zigzag sırasıyla ata
+      // ─────────────────────────────────────────────
+      for (var pos in pozSirasi) {
+        if (atama[pos] != "-") continue; // SUP zaten dolu
+        
+        String? bestK;
+        int bestScore = -999999;
+        
+        for (var k in kisiler) {
+          if (atanmislar.contains(k)) continue;
+          
+          int score = 0;
+          String core = pos.split('_')[0].split('/')[0];
+          
+          // Yetki kontrolü
+          bool yetkili = yetkiler[k]!.isEmpty || 
+                         yetkiler[k]!.contains(pos) || 
+                         yetkiler[k]!.contains(core);
+          if (!yetkili) score -= 100000;
+          
+          // Pozisyon çeşitliliği: daha önce bu pozisyonda oturmamış tercih et
+          if (bugunkuPozisyonlar[k]!.contains(pos)) score -= 5000;
+          bool ayniCoreVar = bugunkuPozisyonlar[k]!.any(
+            (p) => p.split('_')[0].split('/')[0] == core);
+          if (ayniCoreVar) score -= 3000;
+          
+          // Zigzag rotasyon: son pozisyonundan farklı yere yönlendir
+          if (bugunkuPozisyonlar[k]!.isNotEmpty) {
+            String lastCore = bugunkuPozisyonlar[k]!.last.split('_')[0].split('/')[0];
+            if (lastCore != core) score += 2000;
+          }
+          
+          if (score > bestScore) { bestScore = score; bestK = k; }
+        }
+        
+        if (bestK != null) {
+          atama[pos] = bestK;
+          atanmislar.add(bestK);
+          bugunkuPozisyonlar[bestK]!.add(pos);
+        }
+      }
+      
+      gunlukPlan[slot] = atama;
+    }
+    
+    // ─────────────────────────────────────────────
+    // ADIM 3: İnce ayar — aynı pozisyonda tekrar eden kişileri swap et
+    // ─────────────────────────────────────────────
+    for (int slot = 0; slot < slotCount; slot++) {
+      Map<String, String> atama = gunlukPlan[slot]!;
+      List<String> kisiler = slotAtamalari[slot] ?? [];
+      
+      // Bu slottaki her kişinin önceki turlarını kontrol et
+      for (var entry in atama.entries.toList()) {
+        String pos = entry.key;
+        String kisi = entry.value;
+        if (kisi == "-") continue;
+        
+        String core = pos.split('_')[0].split('/')[0];
+        
+        // Bu kişi bu core pozisyonunda daha önce oturmuş mu?
+        List<String> oncekiPozlar = [];
+        for (int prev = 0; prev < slot; prev++) {
+          String? prevPos = gunlukPlan[prev]!.entries
+            .where((e) => e.value == kisi)
+            .map((e) => e.key)
+            .firstOrNull;
+          if (prevPos != null) oncekiPozlar.add(prevPos);
+        }
+        
+        bool tekrarVar = oncekiPozlar.any(
+          (p) => p.split('_')[0].split('/')[0] == core);
+        
+        if (!tekrarVar) continue; // Tekrar yok, swap gerekmez
+        if (core == 'SUP' && supHavuzu.contains(kisi)) continue; // SUP havuzu tekrar yapabilir
+        
+        // Aynı gruptaki başka biriyle swap et
+        for (var entry2 in atama.entries.toList()) {
+          String pos2 = entry2.key;
+          String kisi2 = entry2.value;
+          if (kisi2 == "-" || kisi2 == kisi) continue;
+          
+          String core2 = pos2.split('_')[0].split('/')[0];
+          
+          // kisi2 pos'a geçerse tekrar oluyor mu?
+          bool kisi2TekrarPos = false;
+          for (int prev = 0; prev < slot; prev++) {
+            String? prev2Pos = gunlukPlan[prev]!.entries
+              .where((e) => e.value == kisi2)
+              .map((e) => e.key)
+              .firstOrNull;
+            if (prev2Pos != null && prev2Pos.split('_')[0].split('/')[0] == core) {
+              kisi2TekrarPos = true;
             }
-
-            if (degisimOldu) break;
-
-            for (String arabulucu in aktifPersonel) {
-              if (degisimOldu) break;
-              if (arabulucu == karinca || arabulucu == bocek || plan[i]!.containsValue(arabulucu)) continue; 
-              
-              if (i == saatler.length - 1 && aktifBK.contains(arabulucu)) continue; 
-              if (!_vizeKontrol(arabulucu, karincaGorevi!, coreGorev, acilDurum: true, aktifPersonelHavuzu: aktifPersonel)) continue;
-
-              for (int j = 0; j < saatler.length; j++) {
-                if (i == j || plan[j] == null) continue;
-                
-                String? arabulucuEskiGorevi;
-                plan[j]!.forEach((gorev, kisi) { if (kisi == arabulucu) arabulucuEskiGorevi = gorev; });
-                if (arabulucuEskiGorevi == null) continue;
-
-                if (isLocked(j, arabulucuEskiGorevi!)) continue;
-
-                String arabulucuEskiCore = arabulucuEskiGorevi!.split('_')[0].split('/')[0];
-
-                if (j == 0 && ilkSecilenler.contains(arabulucu)) continue;
-                if (j == saatler.length - 1 && sonSecilenler.contains(arabulucu)) continue;
-
-                if (!pesPeseUygun(arabulucu, i, ignoreI: j)) continue;
-
-                if (!plan[j]!.containsValue(bocek) && pesPeseUygun(bocek, j) && 
-                    _vizeKontrol(bocek, arabulucuEskiGorevi!, arabulucuEskiCore, acilDurum: true, aktifPersonelHavuzu: aktifPersonel)) {
-                  
-                  plan[i]![karincaGorevi!] = arabulucu;
-                  plan[j]![arabulucuEskiGorevi!] = bocek;
-                  
-                  _istatistikleriYenidenHesapla(plan);
-                  degisimOldu = true;
-                  break;
-                }
-              }
-            }
+          }
+          
+          // kisi pos2'ye geçerse tekrar oluyor mu?
+          bool kisi1TekrarPos2 = oncekiPozlar.any(
+            (p) => p.split('_')[0].split('/')[0] == core2);
+          
+          // SUP pozisyonlarını SUP havuzu dışındakilerle swap etme
+          if (core == 'SUP' && !supHavuzu.contains(kisi2)) continue;
+          if (core2 == 'SUP' && !supHavuzu.contains(kisi)) continue;
+          
+          // Swap her iki taraf için de iyileşme sağlıyorsa yap
+          if (!kisi2TekrarPos && !kisi1TekrarPos2) {
+            // Swap!
+            atama[pos] = kisi2;
+            atama[pos2] = kisi;
+            // bugunkuPozisyonlar güncelle
+            bugunkuPozisyonlar[kisi]!.remove(pos);
+            bugunkuPozisyonlar[kisi]!.add(pos2);
+            bugunkuPozisyonlar[kisi2]!.remove(pos2);
+            bugunkuPozisyonlar[kisi2]!.add(pos);
+            break;
           }
         }
       }
     }
+    
+    return gunlukPlan;
   }
 
   void _istatistikleriYenidenHesapla(Map<int, Map<String, String>> plan) {
@@ -678,7 +934,9 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     }
 
     double tGLvl = gunlukSeviye;
-    List<String> tabloBaslikSektorleri = (tGLvl <= 3.5) ? ["DEL", "TWR", "GND", "SUP"] : getSektorlerByLevel(tGLvl);
+    // Tablo başlık sektörleri: tamOtomatik modda hakim seviyeye göre,
+    // ama minimum 4 pozisyon göster (DEL, TWR, GND, SUP)
+    List<String> tabloBaslikSektorleri = getSektorlerByLevel(tGLvl.clamp(4.0, 7.0));
     
     int totalS = 0;
     for (int i = 0; i < saatler.length; i++) {
@@ -696,27 +954,15 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     List<TrafikVerisi> tempGercekciTrf = []; 
     List<HavaDurumu> tempHava = [];
     
-    // Pin sistemi algoritmayı etkilemez - bugunkuKilitler kaldırıldı
-    Map<int, Map<String, String>> gunlukPlan = {};
-
-    for (int i = saatler.length - 1; i >= 0; i--) {
-      double sLvl = tamOtomatikDagitim ? _getIdealLevel(anlikTrafik[i % anlikTrafik.length].genelToplam) : gunlukSeviye;
-      List<String> slotSektors = getSektorlerByLevel(sLvl);
-      Map<String, String>? nextShift = i < saatler.length - 1 ? gunlukPlan[i + 1] : null;
-
-      gunlukPlan[i] = _seviyeliAtamaBackward(
-        aktifPersonel, 
-        i, 
-        majT, 
-        slotSektors, 
-        _dakikaCoz(saatler[i]),
-        nextShift,
-        aktifBK,
-        null // Pin sistemi: kilit yok
-      );
-    }
-
-    _adaletBekcisi(gunlukPlan, majT, aktifPersonel, aktifBK, {});
+    // === YENİ ALGORİTMA v2 ===
+    // Phase 1: Kim hangi slota?
+    Map<int, List<String>> slotAtamalari = _phase1SlotAtama(aktifPersonel, majT, aktifBK);
+    
+    // Phase 2: Pozisyon ataması
+    Map<int, Map<String, String>> gunlukPlan = _phase2PozisyonAtama(slotAtamalari, aktifPersonel);
+    
+    // İstatistikleri hesapla
+    _istatistikleriYenidenHesapla(gunlukPlan);
 
     for (int i = 0; i < saatler.length; i++) {
       TrafikVerisi tObj = anlikTrafik[i % anlikTrafik.length];
@@ -728,12 +974,25 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       List<String> row = [];
       for (String header in tabloBaslikSektorleri) {
         String cellText = "-";
+        String headerCore = header.split('_')[0].split('/')[0];
         
         if (atamalar.containsKey(header)) {
           cellText = atamalar[header]!;
         }
-        else if (header.startsWith("TWR") && atamalar.containsKey("TWR")) { cellText = (header == "TWR_W" || header == "TWR") ? atamalar["TWR"]! : "-"; }
-        else if (header.startsWith("GND") && atamalar.containsKey("GND")) { cellText = (header == "GND_S" || header == "GND") ? atamalar["GND"]! : "-"; }
+        // Seviye farkı eşleme: atamada TWR varsa → TWR_W'ye yaz
+        else if (headerCore == 'TWR' && atamalar.containsKey('TWR')) {
+          cellText = (header == tabloBaslikSektorleri.firstWhere((h) => h.startsWith('TWR'), orElse: () => '')) ? atamalar['TWR']! : '-';
+        }
+        else if (headerCore == 'GND' && atamalar.containsKey('GND')) {
+          cellText = (header == tabloBaslikSektorleri.firstWhere((h) => h.startsWith('GND'), orElse: () => '')) ? atamalar['GND']! : '-';
+        }
+        // Seviye farkı: atamada TWR_W var ama tabloda TWR → ilk TWR varyantını yaz
+        else if (header == 'TWR') {
+          cellText = atamalar['TWR_W'] ?? atamalar['TWR_E'] ?? '-';
+        }
+        else if (header == 'GND') {
+          cellText = atamalar['GND_S'] ?? atamalar['GND_N'] ?? atamalar['GND_C'] ?? '-';
+        }
         
         row.add(cellText);
       }
@@ -764,111 +1023,10 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     
     int varOlanIndex = tamArsiv.indexWhere((b) => b.tarihMetni == recordDateStr);
     if (varOlanIndex != -1) {
-      tamArsiv[varOlanIndex] = yeniBord; // Mevcut kaydı her zaman güncelle (ekran taze veri görsün)
+      tamArsiv[varOlanIndex] = yeniBord;
     } else if (kaydet || tamArsiv.isEmpty) {
-      tamArsiv.add(yeniBord); // Yeni kayıt sadece kaydet=true ise veya arşiv boşsa ekle
-    } else {
-      tamArsiv.add(yeniBord); // İlk açılışta bile bordu göster
+      tamArsiv.add(yeniBord);
     }
-  }
-
-  Map<String, String> _seviyeliAtamaBackward(List<String> havuz, int sIdx, int majT, List<String> slotSeks, int dk, Map<String, String>? nextShiftAtamalar, Set<String> aktifBK, Map<String, String>? kilitler) {
-    Map<String, String> res = {for (var s in slotSeks) s: "-"};
-    List<String> used = [];
-    
-    if (kilitler != null) {
-      for (String pos in slotSeks) { 
-        if (kilitler.containsKey(pos)) {
-          String k = kilitler[pos]!;
-          if (havuz.contains(k)) { 
-            res[pos] = k;
-            used.add(k);
-            String core = pos.split('_')[0].split('/')[0];
-            turSayisi[k] = (turSayisi[k] ?? 0) + 1;
-            dakikaSayisi[k] = (dakikaSayisi[k] ?? 0) + dk; 
-            if(core == "DEL") delSayisi[k] = (delSayisi[k] ?? 0) + 1;
-            else if(core == "TWR") twrSayisi[k] = (twrSayisi[k] ?? 0) + 1;
-            else if(core == "GND") gndSayisi[k] = (gndSayisi[k] ?? 0) + 1;
-            else if(core == "SUP") supSayisi[k] = (supSayisi[k] ?? 0) + 1;
-          }
-        }
-      }
-    }
-
-    for (String pos in slotSeks) {
-      if (res[pos] != "-") continue;
-
-      String bestK = "-"; 
-      int bestS = -99999999;
-      String core = pos.split('_')[0].split('/')[0];
-      
-      for (String k in havuz) {
-        if (used.contains(k)) continue;
-        int s = 0;
-        
-        if (!_vizeKontrol(k, pos, core, acilDurum: false, aktifPersonelHavuzu: havuz)) {
-          s -= 100000000;
-        }
-        
-        // Alt pozisyon öncelik bonusu: tam eşleşme varsa (örn. GND_S seçili → GND_S slotunda öncelikli)
-        if (yetkiler[k]!.isNotEmpty && yetkiler[k]!.contains(pos)) {
-          s += 10000;
-        }
-
-        int yetkiSayisi = yetkiler[k]!.length;
-        s -= yetkiSayisi * 100; 
-
-        if (nextShiftAtamalar != null && nextShiftAtamalar.containsValue(k)) {
-          s -= 500000; 
-        }
-
-        // Sağa Kayarak Rotasyon Bonusu (TWR -> DEL -> GND -> SUP)
-        String expectedFutureCore = {'TWR': 'DEL', 'DEL': 'GND', 'GND': 'SUP', 'SUP': 'TWR'}[core] ?? '';
-        if (nextShiftAtamalar != null && expectedFutureCore.isNotEmpty) {
-          for (var entry in nextShiftAtamalar.entries) {
-            if (entry.value == k) {
-              String futureCore = entry.key.split('_')[0].split('/')[0];
-              if (futureCore == expectedFutureCore) {
-                s += 25000; 
-              }
-              break;
-            }
-          }
-        }
-        
-        if (sIdx == 0 && ilkSecilenler.contains(k)) s += 1000000;
-        if (sIdx == saatler.length - 1 && sonSecilenler.contains(k)) s += 1000000;
-        
-        if (sIdx == 0 && ortaSecilenler.contains(k)) s -= 1000000;
-        if (sIdx == saatler.length - 1 && ortaSecilenler.contains(k)) s -= 1000000;
-        
-        if (sIdx == saatler.length - 1 && aktifBK.contains(k)) s -= 1000000;
-        
-        if (sIdx == 0 && gunlukDurum[k]!.contains('HAMAL')) s += 50000;
-        if (sIdx == 0 && gunlukDurum[k]!.contains('ENSECİ')) s -= 50000;
-
-        // 18 Nöbetlik Arşiv Ortalaması
-        double histAvg = _getArsivYorgunlukOrtalamasi(k);
-        s -= (histAvg * 10).toInt();
-
-        int target = majT + (gunlukDurum[k]!.contains('HAMAL') ? 1 : (gunlukDurum[k]!.contains('ENSECİ') ? -1 : 0));
-        
-        if ((turSayisi[k] ?? 0) >= target) s -= 300000;
-        s -= (turSayisi[k] ?? 0) * 10000;
-        
-        if (s > bestS) { bestS = s; bestK = k; }
-      }
-      
-      if (bestK != "-" && (bestS > -50000000 || core == 'SUP')) { 
-        res[pos] = bestK; used.add(bestK); turSayisi[bestK] = (turSayisi[bestK] ?? 0) + 1;
-        dakikaSayisi[bestK] = (dakikaSayisi[bestK] ?? 0) + dk; 
-        if(core == "DEL") delSayisi[bestK] = (delSayisi[bestK] ?? 0) + 1;
-        else if(core == "TWR") twrSayisi[bestK] = (twrSayisi[bestK] ?? 0) + 1;
-        else if(core == "GND") gndSayisi[bestK] = (gndSayisi[bestK] ?? 0) + 1;
-        else if(core == "SUP") supSayisi[bestK] = (supSayisi[bestK] ?? 0) + 1;
-      }
-    }
-    return res;
   }
 
   void _isiHaritasiniAc() {
@@ -1094,6 +1252,9 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                                     await _trafikVerisiniCek();
                                     setST(() => _veriCekiliyor = false);
                                   }, color: Colors.lightBlueAccent),
+                            if (trafikGuncelleme.isNotEmpty) ...[                              const SizedBox(width: 8),
+                              Text(trafikGuncelleme, style: const TextStyle(color: Colors.white24, fontSize: 9)),
+                            ],
                           ],
                         ),
                         const SizedBox(height: 12),
@@ -1242,7 +1403,10 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                         await _meteorolojiVerisiniCek();
                         setModalState(() => _modalIciVeriCekiliyor = false);
                       }
-                    )
+                    ),
+                if (metGuncelleme.isNotEmpty) ...[                  const SizedBox(width: 8),
+                  Text(metGuncelleme, style: const TextStyle(color: Colors.white24, fontSize: 9)),
+                ],
               ]),
               IconButton(padding: EdgeInsets.zero, constraints: const BoxConstraints(), icon: const Icon(Icons.close, color: Colors.white54), onPressed: () => Navigator.pop(context))
             ]),
@@ -1908,7 +2072,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
         }
       }
 
-      return AlertDialog(backgroundColor: const Color(0xFF1A1A1A), title: const Center(child: Text("OPERASYON YÖNETİMİ", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1))),
+      return AlertDialog(backgroundColor: const Color(0xFF1A1A1A), titlePadding: EdgeInsets.zero,
         content: SizedBox(width: 500, height: 600, child: Column(children: [
           Builder(builder: (context) {
             String p1 = (isGunduzVardiyasi ? gunduzKlasik : geceKlasik).last.split(' - ').first;

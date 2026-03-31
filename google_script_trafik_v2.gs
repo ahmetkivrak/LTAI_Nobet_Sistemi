@@ -44,6 +44,16 @@ function asciVeriyiHazirla() {
 
 // ----------------------------------------------------------
 // IFR: "Haftalık" Excel eki → haftalikVeri doldur
+// GERÇEK FORMAT (uçuş bazlı satırlar):
+//   Sütun 0: DATE    → "30.03.26" (DD.MM.YY)
+//   Sütun 1: AIRLINE → "PEGASUS", "TURKISH AIRLINES" vb.
+//   Sütun 2: IN      → Gelen uçuş numarası (boşsa gelen yok)
+//   Sütun 3: OUT     → Giden uçuş numarası (boşsa giden yok)
+//   Sütun 4: STA     → Varış saati "HH:MM" (veya "RON")
+//   Sütun 5: STD     → Kalkış saati "HH:MM" (veya "RON")
+//   Sütun 6: FROM    → Kalkış havalimanı
+//   Sütun 7: TO      → Varış havalimanı
+// Her satır BİR UÇUŞ. Saatlik toplama biz yapıyoruz.
 // ----------------------------------------------------------
 function ifrExceldenDoldur(haftalikVeri) {
   var query = 'has:attachment (filename:xls OR filename:xlsx) "Haftalık" newer_than:7d';
@@ -62,7 +72,7 @@ function ifrExceldenDoldur(haftalikVeri) {
       var att = atts[a];
       if (att.getName().toLowerCase().indexOf('haftal') === -1) continue;
 
-      console.log("IFR: Excel dosyası bulundu, dönüştürülüyor...");
+      console.log("IFR: Excel dosyası bulundu, dönüştürülüyor... " + att.getName());
       var fileBlob = att.copyBlob();
       var convertedFile = Drive.Files.create(
         { name: "GECICI_IFR_" + new Date().getTime(), mimeType: MimeType.GOOGLE_SHEETS },
@@ -70,42 +80,105 @@ function ifrExceldenDoldur(haftalikVeri) {
       );
       var ss = SpreadsheetApp.openById(convertedFile.id);
       var displayData = ss.getSheets()[0].getDataRange().getDisplayValues();
+      
+      var ucusSayaci = 0;
       var aktifTarih = "";
 
       for (var i = 0; i < displayData.length; i++) {
         var row = displayData[i];
-        var rowText = row.join(" ").trim();
-        if (rowText.toUpperCase().indexOf("TOPLAM") > -1 || rowText.toUpperCase().indexOf("TOTAL") > -1) continue;
-
-        var tarih = tarihBul(row[0] + " " + row[1]);
+        if (row.length < 6) continue;
+        
+        // İlk sütundan tarih çıkar (DD.MM.YY veya DD.MM.YYYY)
+        var dateCell = String(row[0]).trim();
+        var tarih = ifrTarihCevir(dateCell);
         if (tarih) {
           aktifTarih = tarih;
-          if (!haftalikVeri[aktifTarih]) haftalikVeri[aktifTarih] = {};
-          continue;
         }
-        if (aktifTarih === "") continue;
-
-        var saatBilgisi = saatBul(row, 4);
-        if (saatBilgisi) {
-          var gelenStr = String(row[saatBilgisi.idx + 9] || "0").replace(/[^0-9]/g, "");
-          var gidenStr = String(row[saatBilgisi.idx + 10] || "0").replace(/[^0-9]/g, "");
-          var gelen = parseInt(gelenStr) || 0;
-          var giden = parseInt(gidenStr) || 0;
-
-          if (!haftalikVeri[aktifTarih][saatBilgisi.saat]) {
-            haftalikVeri[aktifTarih][saatBilgisi.saat] = { hareket: 0, gelen: 0, giden: 0, vfrGelen: 0, vfrGiden: 0 };
+        if (!aktifTarih) continue;
+        if (!haftalikVeri[aktifTarih]) haftalikVeri[aktifTarih] = {};
+        
+        // IN sütunu (gelen uçuş) ve STA (varış saati)
+        var inFlight = String(row[2] || "").trim();
+        var sta = String(row[4] || "").trim();
+        
+        // OUT sütunu (giden uçuş) ve STD (kalkış saati)
+        var outFlight = String(row[3] || "").trim();
+        var std = String(row[5] || "").trim();
+        
+        // GELEN: IN doluysa ve STA geçerli bir saatse
+        if (inFlight && inFlight.length > 1) {
+          var gelenSaat = saatCikar(sta);
+          if (gelenSaat) {
+            if (!haftalikVeri[aktifTarih][gelenSaat]) {
+              haftalikVeri[aktifTarih][gelenSaat] = { hareket: 0, gelen: 0, giden: 0, vfrGelen: 0, vfrGiden: 0 };
+            }
+            haftalikVeri[aktifTarih][gelenSaat].gelen += 1;
+            haftalikVeri[aktifTarih][gelenSaat].hareket += 1;
+            ucusSayaci++;
           }
-          haftalikVeri[aktifTarih][saatBilgisi.saat].hareket += gelen + giden;
-          haftalikVeri[aktifTarih][saatBilgisi.saat].gelen   += gelen;
-          haftalikVeri[aktifTarih][saatBilgisi.saat].giden   += giden;
+        }
+        
+        // GİDEN: OUT doluysa ve STD geçerli bir saatse
+        if (outFlight && outFlight.length > 1) {
+          var gidenSaat = saatCikar(std);
+          if (gidenSaat) {
+            if (!haftalikVeri[aktifTarih][gidenSaat]) {
+              haftalikVeri[aktifTarih][gidenSaat] = { hareket: 0, gelen: 0, giden: 0, vfrGelen: 0, vfrGiden: 0 };
+            }
+            haftalikVeri[aktifTarih][gidenSaat].giden += 1;
+            haftalikVeri[aktifTarih][gidenSaat].hareket += 1;
+            ucusSayaci++;
+          }
         }
       }
 
+      var tarihSayisi = Object.keys(haftalikVeri).length;
+      console.log("IFR: " + ucusSayaci + " hareket, " + tarihSayisi + " gün işlendi.");
       DriveApp.getFileById(convertedFile.id).setTrashed(true);
       return haftalikVeri;
     }
   }
   return haftalikVeri;
+}
+
+// Uçuş tarihini çevir: "30.03.26" → "30.03.2026"
+function ifrTarihCevir(metin) {
+  if (!metin || metin.length < 6) return null;
+  
+  // DD.MM.YY formatı (ör: "30.03.26")
+  var m1 = metin.match(/^(\d{1,2})\.(\d{1,2})\.(\d{2})$/);
+  if (m1) {
+    var yil = parseInt(m1[3]) + 2000;
+    return ("0" + m1[1]).slice(-2) + "." + ("0" + m1[2]).slice(-2) + "." + yil;
+  }
+  
+  // DD.MM.YYYY formatı (ör: "30.03.2026")
+  var m2 = metin.match(/^(\d{1,2})\.(\d{1,2})\.(20\d{2})$/);
+  if (m2) {
+    return ("0" + m2[1]).slice(-2) + "." + ("0" + m2[2]).slice(-2) + "." + m2[3];
+  }
+  
+  // M/D/YYYY formatı (ör: "3/30/2026")
+  var m3 = metin.match(/^(\d{1,2})\/(\d{1,2})\/(20\d{2})$/);
+  if (m3) {
+    var p1 = parseInt(m3[1]), p2 = parseInt(m3[2]);
+    var gun = p2, ay = p1;
+    if (p1 > 12) { gun = p1; ay = p2; }
+    return ("0" + gun).slice(-2) + "." + ("0" + ay).slice(-2) + "." + m3[3];
+  }
+  
+  return null;
+}
+
+// STA/STD saatinden "HH:00" formatına çevir
+// "00:05" → "00:00", "14:35" → "14:00", "RON" → null
+function saatCikar(metin) {
+  if (!metin) return null;
+  var m = metin.match(/^(\d{1,2}):(\d{2})/);
+  if (m) {
+    return ("0" + parseInt(m[1])).slice(-2) + ":00";
+  }
+  return null;
 }
 
 // ----------------------------------------------------------
@@ -193,40 +266,6 @@ function vfrErahPdfdenDoldur(haftalikVeri) {
 }
 
 // ----------------------------------------------------------
-// YARDIMCI: Hücreden tarih çıkar
-// ----------------------------------------------------------
-function tarihBul(metin) {
-  var dM1 = metin.match(/(202\d)[-\/.](\d{1,2})[-\/.](\d{1,2})/);
-  if (dM1) return ("0" + dM1[3]).slice(-2) + "." + ("0" + dM1[2]).slice(-2) + "." + dM1[1];
-
-  var dM2 = metin.match(/(\d{1,2})[-\/.](\d{1,2})[-\/.](202\d)/);
-  if (dM2) {
-    var p1 = parseInt(dM2[1]), p2 = parseInt(dM2[2]);
-    var gun = (p1 > 12) ? p1 : (p2 > 12 ? p2 : p1);
-    var ay  = (p1 > 12) ? p2 : (p2 > 12 ? p1 : p2);
-    return ("0" + gun).slice(-2) + "." + ("0" + ay).slice(-2) + "." + dM2[3];
-  }
-  return null;
-}
-
-// ----------------------------------------------------------
-// YARDIMCI: Satırdan Off Block saatini bul
-// ----------------------------------------------------------
-function saatBul(row, maxCol) {
-  for (var c = 0; c < Math.min(maxCol, row.length); c++) {
-    var huc = String(row[c]).trim();
-    if (huc === "00:00:00" || huc.indexOf("12:00:00 AM") > -1) {
-      return { saat: "00:00", idx: c };
-    }
-    var tMatch = huc.match(/^(\d{2})[:.](\d{2})/);
-    if (tMatch && huc.indexOf("-") > -1) {
-      return { saat: tMatch[1] + ":00", idx: c };
-    }
-  }
-  return null;
-}
-
-// ----------------------------------------------------------
 // doGet - Flutter uygulaması buradan okur
 // ?action=refresh_notam → Gmail'den yeni NOTAM'ları çek, kaydet, sonra döndür
 // (parametre yok)       → Sadece cache'i oku (hızlı)
@@ -255,12 +294,6 @@ function doGet(e) {
 
 // ----------------------------------------------------------
 // LTAI NOTAM MODÜLÜ
-// PIB FORMAT GERÇEĞI (Gmail plain body, yıldız biçimli):
-//   [İÇERİK_i]  ID_i *FROM: * tarihX* *TO: * tarihY*  +  [İÇERİK_{i+1}]  ID_{i+1} *FROM: * ...
-//
-// Yani her ID_i bloğunun SONRAKI '+' işaretinden sonraki metin
-// bir SONRAKİ NOTAM'a ait.
-// İÇERİK_i ise bir önceki bloğun '+' işaretinden sonra, bu ID'den önce gelir.
 // ----------------------------------------------------------
 function ltaiNotamEkle() {
   try {
@@ -282,10 +315,7 @@ function ltaiNotamEkle() {
     var body = msg.getPlainBody();
     console.log("NOTAM: PIB maili → " + msg.getSubject());
 
-    // Tüm metni tek satıra indir
     var tekSatir = body.replace(/\r?\n|\r/g, " ");
-
-    // Her ID'yi *FROM: * ile birlikte bul
     var regex_id = /([A-Z]\d{4}\/\d{2})\s+\*FROM:\s*\*/g;
     var matches = [...tekSatir.matchAll(regex_id)];
     var notamlar = [];
@@ -296,23 +326,18 @@ function ltaiNotamEkle() {
       var nextStart = (i + 1 < matches.length) ? matches[i+1].index : tekSatir.length;
       var block = tekSatir.substring(idStart, nextStart);
 
-      // FROM ve TO tarihleri bu bloğun içinde (doğru)
       var fromMatch = block.match(/\*FROM:\s*\*\s*([^*+]+)/);
       var toMatch   = block.match(/\*TO:\s*\*\s*([^*+]+)/);
       var rawFrom = fromMatch ? fromMatch[1].trim().replace(/\*$/, "") : "Bilinmiyor";
       var rawTo   = toMatch   ? toMatch[1].trim().replace(/\*$/, "")  : "Bilinmiyor";
 
-      // İÇERİK: bir önceki bloğun '+' işaretinden sonraki metin bu NOTAM'a ait
       var icerik = "";
       if (i === 0) {
-        // İlk NOTAM: metnin başından bu ID'ye kadar olan kısım
         var oncesi = tekSatir.substring(0, idStart);
         var sonPlus = oncesi.lastIndexOf(" + ");
         icerik = sonPlus >= 0 ? oncesi.substring(sonPlus + 3) : oncesi;
       } else {
-        // Önceki blok: matches[i-1].index'ten bu idStart'a kadar
         var prevBlock = tekSatir.substring(matches[i-1].index, idStart);
-        // '*TO:* tarih* + İÇERİK' formatında + işaretini bul
         var sepMatch = prevBlock.match(/\*\s*\+\s*([\s\S]*)$/);
         if (sepMatch) {
           icerik = sepMatch[1];
@@ -343,7 +368,7 @@ function ltaiNotamEkle() {
   }
 }
 
-// "19 MAR 2026 07:46" -> "19.03.2026 07:46" formatına çeviren yardımcı
+// "19 MAR 2026 07:46" -> "19.03.2026 07:46"
 function _tarihCevir(str) {
   if (!str) return "Bilinmiyor";
   str = str.trim();

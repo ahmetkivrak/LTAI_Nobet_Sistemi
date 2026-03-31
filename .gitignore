@@ -5,6 +5,7 @@ ltai_nobet_sistemi/.flutter-plugins
 ltai_nobet_sistemi/.flutter-plugins-dependencies
 ltai_nobet_sistemi/.packages
 ltai_nobet_sistemi/pubspec.lock
+ltai_nobet_sistemi/.metadata
 
 # IDE
 .idea/
@@ -14,6 +15,10 @@ ltai_nobet_sistemi/pubspec.lock
 # macOS
 .DS_Store
 **/.DS_Store
+
+# Data files (veri dosyaları)
+*.xlsx
+*.csv
 
 # Gemini/Agent data
 .gemini/
