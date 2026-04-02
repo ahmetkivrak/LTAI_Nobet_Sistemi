@@ -8,7 +8,7 @@ We are currently finalizing the deterministic zigzag duty scheduling algorithm. 
 *   **Role Mapping**:
     *   **KARINCA (Hard workers)**: Automatically mapped to numbers with the most shifts. Also factors in specific slot preferences (early vs. late).
     *   **AĞUSTOS BÖCEĞİ (Light workers)**: Automatically mapped to numbers with the fewest shifts.
-*   **SUP Management**: Improved the allocation logic for SUP members to guarantee they are distributed to different slots without overlapping unless necessary.
+*   **SUP Management**: Improved the allocation logic for SUP members to guarantee they are distributed to different slots without overlapping unless necessary. Introduced SUP Rotation (Joker SUP): Actual SUP-authorized personnel are given resting rounds if they already served as SUP today; a random available non-SUP logic picks up Joker SUP shifts to ensure roster fairness.
 *   **BK Prioritization**: "Bizimle Kal" (BK) personnel are now properly maintained in the active roster but excluded from the final slot assignment.
 *   **UI Consistency**: Added explicit indicators in the shift requirement overlay to accurately reflect manual selection overrides `(Seçili: X K Y A)`.
 

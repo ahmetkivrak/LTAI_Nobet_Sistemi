@@ -826,21 +826,21 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
             }
           }
         }
-        // Öncelik 2: SUP havuzunda olan (zaten yazmış ama en az yazan)
+        // Öncelik 2: Grup içinden Joker SUP (Gerçek SUP'lar dinlensin diye)
         if (supKisi == null) {
+          String? bestSup;
+          int bestV = -9999;
           for (var k in kisiler) {
             if (atanmislar.contains(k)) continue;
-            if (supHavuzu.contains(k)) {
-              supKisi = k;
-              break;
-            }
+            int score = 0;
+            // Gerçek SUP ise ve buraya kadar geldiyse (yani zaten SUP yapmışsa), onu seçmekten KAÇIN (dinlensin)
+            if (supHavuzu.contains(k)) score -= 1000;
+            // Gruptaki diğer kişiler arasında da henüz SUP "Jokerliği" yapmamış olanı tercih et
+            if (supYazmislar.contains(k)) score -= 500;
+            
+            if (score > bestV) { bestV = score; bestSup = k; }
           }
-        }
-        // Öncelik 3: Gruptaki herhangi biri
-        if (supKisi == null) {
-          for (var k in kisiler) {
-            if (!atanmislar.contains(k)) { supKisi = k; break; }
-          }
+          supKisi = bestSup;
         }
         
         if (supKisi != null) {
