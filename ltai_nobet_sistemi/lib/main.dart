@@ -237,7 +237,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
             });
             _haftalikTrafikKasa[tarihStr] = gunlukTrafik;
           });
-          debugPrint("AŞÇI'DAN PAKET ALINDI!");
           setState(() {
             ltaiNotamlari = decoded['notamlar'] ?? [];
             notamGuncelleme = decoded['notamGuncelleme'] ?? "";
@@ -394,10 +393,10 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       TrafikVerisi maxTrf = TrafikVerisi(0, 0);
       int h = startH;
       while(true) {
+        if (h == endH && endM == 0) break; 
         bool isYarin = !isGunduzVardiyasi && (h < 12); 
         TrafikVerisi curTrf = isYarin ? yarinTrafik24[h] : anlikTrafik24[h];
         if (curTrf.genelToplam > maxTrf.genelToplam) maxTrf = curTrf;
-        if (h == endH && endM == 0) break; 
         if (h == endH) break; 
         h = (h + 1) % 24; 
       }
@@ -422,11 +421,12 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       String baseRwy = anlikHava24[startH]?.rwy ?? "36";
       int hw = startH;
       while(true) {
+        if (hw == endH && endM == 0) break;
         HavaDurumu hwDurum = anlikHava24[hw] ?? HavaDurumu();
         if (hwDurum.rwy.contains("36")) has36 = true; if (hwDurum.rwy.contains("18")) has18 = true;
         if (hwDurum.yagmur) hasRain = true; if (hwDurum.oraj) hasStorm = true;
         if (hwDurum.bulutlu) hasCloud = true; if (hwDurum.siddetliRuzgar) hasWind = true;
-        if (hw == endH && endM == 0) break; if (hw == endH) break; hw = (hw + 1) % 24;
+        if (hw == endH) break; hw = (hw + 1) % 24;
       }
 
       String finalRwy = baseRwy;
@@ -523,10 +523,12 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     
     // Slot kapasiteleri
     List<int> slotKap = [];
+    double minLvl = gunlukSeviye.clamp(4.0, 7.0);
     for (int i = 0; i < slotCount; i++) {
       double sLvl = tamOtomatikDagitim 
           ? _getIdealLevel(anlikTrafik[i % anlikTrafik.length].genelToplam) 
           : gunlukSeviye;
+      if (tamOtomatikDagitim && sLvl < minLvl) sLvl = minLvl;
       slotKap.add(getSektorlerByLevel(sLvl).length);
     }
     
@@ -584,6 +586,28 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       if (diff != 0) return diff;
       return _numAvg(a).compareTo(_numAvg(b));
     });
+    
+    // ─── BİZİMLE KAL (BK) ATAMASI ───
+    // BK kişisinin son slottan (slotCount - 1) otomatik silineceği için 
+    // eksik kadro ("-") bırakmaması adına son slotu içermeyen numaralar verilir.
+    Set<String> aktifBKPersonel = this.bizimleKalSecilenler.where((k) => aktifPersonel.contains(k)).toSet();
+    for (var k in aktifBKPersonel) {
+      if (kisiNumara.containsKey(k)) continue;
+      
+      List<int> bkIcinUygun = tumNumaralar.where((n) {
+        if (kullanilanlar.contains(n)) return false;
+        return !(numaraSlotlari[n]?.contains(slotCount - 1) ?? false);
+      }).toList();
+
+      if (bkIcinUygun.isNotEmpty) {
+        kisiNumara[k] = bkIcinUygun.first;
+        kullanilanlar.add(bkIcinUygun.first);
+      } else {
+        int mecburi = tumNumaralar.firstWhere((n) => !kullanilanlar.contains(n));
+        kisiNumara[k] = mecburi;
+        kullanilanlar.add(mecburi);
+      }
+    }
     
     // ─── KARINCA → en çok tur çalışan numaraya ───
     karincalar.sort((a, b) => _getArsivYorgunlukOrtalamasi(a).compareTo(_getArsivYorgunlukOrtalamasi(b)));
@@ -690,15 +714,26 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     List<int> kalanNumaralar = tumNumaralar.where((n) => !kullanilanlar.contains(n)).toList();
     kalanNumaralar.sort((a, b) => _numAvg(a).compareTo(_numAvg(b)));
     
-    int numI = 0;
     for (var k in eslemeListesi) {
-      while (numI < kalanNumaralar.length) {
-        int num = kalanNumaralar[numI];
-        numI++;
-        if (!_numaraUygun(k, num)) continue;
-        kisiNumara[k] = num;
-        kullanilanlar.add(num);
-        break;
+      int? assignedNum;
+      for (int i = 0; i < kalanNumaralar.length; i++) {
+        int num = kalanNumaralar[i];
+        if (_numaraUygun(k, num)) {
+          assignedNum = num;
+          kalanNumaralar.removeAt(i);
+          break;
+        }
+      }
+      // Geçerli bir numara bulunamadıysa (kısıtlamalardan dolayı), düşmemesi için
+      // kalan herhangi bir numarayı zorla ata.
+      if (assignedNum == null && kalanNumaralar.isNotEmpty) {
+        assignedNum = kalanNumaralar.first;
+        kalanNumaralar.removeAt(0);
+      }
+      
+      if (assignedNum != null) {
+        kisiNumara[k] = assignedNum;
+        kullanilanlar.add(assignedNum);
       }
     }
     
@@ -713,13 +748,13 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       }
     }
     
-    // Atanmamış kişi varsa (kısıtlama çakışmasından) → fallback
+    // Atanmamış kişi varsa (çakışmadan değil, sayılar uyumsuzsa vb.) → fallback
     for (var k in aktifPersonel) {
       if (!kisiNumara.containsKey(k)) {
+        // En boş numarayı veya ilk rastgele numarayı zorla vererek boş kalmasını engelle
         for (int slot = 0; slot < slotCount; slot++) {
           if (slotAtamalari[slot]!.length < slotKap[slot]) {
             slotAtamalari[slot]!.add(k);
-            break;
           }
         }
       }
@@ -745,10 +780,12 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     Set<String> supHavuzu = aktifPersonel.where((k) => yetkiler[k]!.contains('SUP')).toSet();
     Set<String> supYazmislar = {};
     
+    double minLvl = gunlukSeviye.clamp(4.0, 7.0);
     for (int slot = 0; slot < slotCount; slot++) {
       double sLvl = tamOtomatikDagitim 
           ? _getIdealLevel(anlikTrafik[slot % anlikTrafik.length].genelToplam) 
           : gunlukSeviye;
+      if (tamOtomatikDagitim && sLvl < minLvl) sLvl = minLvl;
       List<String> pozisyonlar = getSektorlerByLevel(sLvl);
       List<String> kisiler = List.from(slotAtamalari[slot] ?? []);
       
@@ -778,7 +815,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
           if (atanmislar.contains(k)) continue;
           if (supHavuzu.contains(k)) {
             var y = yetkiler[k]!;
-            bool supOnly = !y.contains('TWR') && !y.contains('DEL') && !y.contains('GND');
+            bool supOnly = y.length == 1 && y.contains('SUP');
             if (supOnly) { supKisi = k; break; }
           }
         }
@@ -996,8 +1033,10 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
         adaylar.sort((a, b) => totalBK[a]!.compareTo(totalBK[b]!));
         aktifBK.add(adaylar.first);
       } else if (aktifPersonel.isNotEmpty) {
-        aktifPersonel.sort((a, b) => totalBK[a]!.compareTo(totalBK[b]!));
-        aktifBK.add(aktifPersonel.first);
+        // Tüm aktif personel son 4'te BK görmüş — en az toplam BK olan seçilir
+        List<String> hepsi = List.from(aktifPersonel);
+        hepsi.sort((a, b) => totalBK[a]!.compareTo(totalBK[b]!));
+        aktifBK.add(hepsi.first);
       }
     }
 
@@ -1026,7 +1065,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     List<TrafikVerisi> tempGercekciTrf = []; 
     List<HavaDurumu> tempHava = [];
     
-    // === YENİ ALGORİTMA v2 ===
     // Phase 1: Kim hangi slota?
     Map<int, List<String>> slotAtamalari = _phase1SlotAtama(aktifPersonel);
     
