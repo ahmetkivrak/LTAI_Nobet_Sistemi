@@ -523,12 +523,10 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     
     // Slot kapasiteleri
     List<int> slotKap = [];
-    double minLvl = gunlukSeviye.clamp(4.0, 7.0);
     for (int i = 0; i < slotCount; i++) {
       double sLvl = tamOtomatikDagitim 
           ? _getIdealLevel(anlikTrafik[i % anlikTrafik.length].genelToplam) 
           : gunlukSeviye;
-      if (tamOtomatikDagitim && sLvl < minLvl) sLvl = minLvl;
       slotKap.add(getSektorlerByLevel(sLvl).length);
     }
     
@@ -755,6 +753,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
         for (int slot = 0; slot < slotCount; slot++) {
           if (slotAtamalari[slot]!.length < slotKap[slot]) {
             slotAtamalari[slot]!.add(k);
+            break;
           }
         }
       }
@@ -780,12 +779,10 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     Set<String> supHavuzu = aktifPersonel.where((k) => yetkiler[k]!.contains('SUP')).toSet();
     Set<String> supYazmislar = {};
     
-    double minLvl = gunlukSeviye.clamp(4.0, 7.0);
     for (int slot = 0; slot < slotCount; slot++) {
       double sLvl = tamOtomatikDagitim 
           ? _getIdealLevel(anlikTrafik[slot % anlikTrafik.length].genelToplam) 
           : gunlukSeviye;
-      if (tamOtomatikDagitim && sLvl < minLvl) sLvl = minLvl;
       List<String> pozisyonlar = getSektorlerByLevel(sLvl);
       List<String> kisiler = List.from(slotAtamalari[slot] ?? []);
       
