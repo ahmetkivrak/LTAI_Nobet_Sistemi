@@ -93,8 +93,8 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
   List<String> gunduzKlasik = ["09:00 - 10:40", "10:40 - 12:20", "12:20 - 14:00", "14:00 - 15:40", "15:40 - 17:20", "17:20 - 19:00"];
   List<String> gunduzAlengirli = ["09:00 - 10:40", "10:40 - 12:20", "12:20 - 14:00", "14:00 - 15:20", "15:20 - 16:40", "16:40 - 17:50", "17:50 - 19:00"];
   
-  List<String> geceKlasik = ["19:00 - 21:20", "21:20 - 23:40", "23:40 - 02:00", "02:00 - 04:20", "04:20 - 06:40", "06:40 - 09:00"];
-  List<String> geceAlengirli = ["19:00 - 21:00", "21:00 - 23:00", "23:00 - 01:00", "01:00 - 03:00", "03:00 - 05:00", "05:00 - 07:00", "07:00 - 09:00"];
+  List<String> geceKlasik = ["19:00 - 20:40", "20:40 - 22:20", "22:20 - 00:00", "00:00 - 03:00", "03:00 - 05:30", "05:30 - 08:00", "08:00 - 09:00"];
+  List<String> geceAlengirli = ["19:00 - 21:15", "21:15 - 23:30", "23:30 - 03:00", "03:00 - 05:30", "05:30 - 08:00", "08:00 - 09:00"];
 
   List<String> get saatler {
     if (isGunduzVardiyasi) return saatSenaryosu == 1 ? gunduzKlasik : gunduzAlengirli;
@@ -791,9 +791,9 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
         kisiler.removeWhere((k) => aktifBK.contains(k));
       }
       
-      // Zigzag yön: çift slot = ileri, tek slot = ters
-      bool ters = slot % 2 == 1;
-      List<String> pozSirasi = ters ? pozisyonlar.reversed.toList() : List.from(pozisyonlar);
+      // Personel eksik olduğunda TWR yerine GND'nin boş kalması için 
+      // öncelik sırası korunmalıdır. (tersine çevrilmez - score sistemi rotasyonu yapıyor zaten)
+      List<String> pozSirasi = List.from(pozisyonlar);
       
       Map<String, String> atama = {for (var p in pozisyonlar) p: "-"};
       Set<String> atanmislar = {};
@@ -2187,66 +2187,121 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       return AlertDialog(backgroundColor: const Color(0xFF1A1A1A), titlePadding: EdgeInsets.zero,
         content: SizedBox(width: 500, height: 600, child: Column(children: [
           Builder(builder: (context) {
-            String p1 = (isGunduzVardiyasi ? gunduzKlasik : geceKlasik).last.split(' - ').first;
-            String p2 = (isGunduzVardiyasi ? gunduzAlengirli : geceAlengirli).last.split(' - ').first;
-            Color cAI = tamOtomatikDagitim ? Colors.orangeAccent : Colors.lightBlueAccent;
+            String p1G = gunduzKlasik.last.split(' - ').first;
+            String p2G = gunduzAlengirli.last.split(' - ').first;
+            String n1Txt = "20:40";
+            String n2Txt = "21:15";
+            Color cAI = tamOtomatikDagitim ? Colors.greenAccent : Colors.teal.withOpacity(0.5);
             return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
                   flex: 3,
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                       backgroundColor: cAI.withOpacity(0.15), foregroundColor: cAI,
-                       side: BorderSide(color: cAI, width: tamOtomatikDagitim ? 2 : 1),
-                       padding: EdgeInsets.zero, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6))
-                    ),
-                    icon: Icon(tamOtomatikDagitim ? Icons.smart_toy : Icons.smart_toy_outlined, size: 16),
-                    label: const Text("AI", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
-                    onPressed: () => setD(() { tamOtomatikDagitim = !tamOtomatikDagitim; _gruplariGuncelle(arsiveKaydet: false); })
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SizedBox(
+                        height: 35,
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                             backgroundColor: cAI.withOpacity(0.15), foregroundColor: cAI,
+                             side: BorderSide(color: cAI, width: tamOtomatikDagitim ? 2 : 1),
+                             padding: EdgeInsets.zero, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6))
+                          ),
+                          icon: Icon(tamOtomatikDagitim ? Icons.smart_toy : Icons.smart_toy_outlined, size: 16),
+                          label: const Text("AI", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                          onPressed: () => setD(() { tamOtomatikDagitim = !tamOtomatikDagitim; _gruplariGuncelle(arsiveKaydet: false); })
+                        )
+                      ),
+                      const SizedBox(height: 6),
+                      SizedBox(
+                        height: 35,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                             backgroundColor: Colors.white.withOpacity(0.1), foregroundColor: Colors.white,
+                             side: const BorderSide(color: Colors.white38, width: 1.5),
+                             padding: EdgeInsets.zero, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6))
+                          ),
+                          onPressed: () { _gruplariGuncelle(arsiveKaydet: true); Navigator.pop(context); },
+                          child: const Icon(Icons.check_circle, size: 20)
+                        )
+                      ),
+                    ]
                   )
                 ),
                 const SizedBox(width: 6),
                 Expanded(
                   flex: 4,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                       backgroundColor: saatSenaryosu == 1 ? cAI.withOpacity(0.3) : Colors.transparent,
-                       foregroundColor: saatSenaryosu == 1 ? cAI : Colors.white54,
-                       side: BorderSide(color: saatSenaryosu == 1 ? cAI : Colors.white24, width: saatSenaryosu == 1 ? 1.5 : 1),
-                       padding: EdgeInsets.zero, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6))
-                    ),
-                    onPressed: () => setD(() { saatSenaryosu = 1; _gruplariGuncelle(arsiveKaydet: false); }),
-                    child: Text("⏱️ $p1", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 1))
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SizedBox(
+                        height: 35,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                             backgroundColor: (isGunduzVardiyasi && saatSenaryosu == 1) ? Colors.orangeAccent.withOpacity(0.3) : Colors.transparent,
+                             foregroundColor: (isGunduzVardiyasi && saatSenaryosu == 1) ? Colors.orangeAccent : Colors.white54,
+                             side: BorderSide(color: (isGunduzVardiyasi && saatSenaryosu == 1) ? Colors.orangeAccent : Colors.white24, width: (isGunduzVardiyasi && saatSenaryosu == 1) ? 1.5 : 1),
+                             padding: EdgeInsets.zero, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6))
+                          ),
+                          onPressed: () => setD(() { isGunduzVardiyasi = true; saatSenaryosu = 1; _gruplariGuncelle(arsiveKaydet: false); }),
+                          child: Text("☀️ $p1G", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 1))
+                        )
+                      ),
+                      const SizedBox(height: 6),
+                      SizedBox(
+                        height: 35,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                             backgroundColor: (isGunduzVardiyasi && saatSenaryosu == 2) ? Colors.orangeAccent.withOpacity(0.3) : Colors.transparent,
+                             foregroundColor: (isGunduzVardiyasi && saatSenaryosu == 2) ? Colors.orangeAccent : Colors.white54,
+                             side: BorderSide(color: (isGunduzVardiyasi && saatSenaryosu == 2) ? Colors.orangeAccent : Colors.white24, width: (isGunduzVardiyasi && saatSenaryosu == 2) ? 1.5 : 1),
+                             padding: EdgeInsets.zero, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6))
+                          ),
+                          onPressed: () => setD(() { isGunduzVardiyasi = true; saatSenaryosu = 2; _gruplariGuncelle(arsiveKaydet: false); }),
+                          child: Text("☀️ $p2G", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 1))
+                        )
+                      ),
+                    ]
                   )
                 ),
                 const SizedBox(width: 6),
                 Expanded(
                   flex: 4,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                       backgroundColor: saatSenaryosu == 2 ? cAI.withOpacity(0.3) : Colors.transparent,
-                       foregroundColor: saatSenaryosu == 2 ? cAI : Colors.white54,
-                       side: BorderSide(color: saatSenaryosu == 2 ? cAI : Colors.white24, width: saatSenaryosu == 2 ? 1.5 : 1),
-                       padding: EdgeInsets.zero, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6))
-                    ),
-                    onPressed: () => setD(() { saatSenaryosu = 2; _gruplariGuncelle(arsiveKaydet: false); }),
-                    child: Text("🔀 $p2", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 1))
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SizedBox(
+                        height: 35,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                             backgroundColor: (!isGunduzVardiyasi && saatSenaryosu == 1) ? Colors.indigoAccent.withOpacity(0.3) : Colors.transparent,
+                             foregroundColor: (!isGunduzVardiyasi && saatSenaryosu == 1) ? Colors.indigoAccent : Colors.white54,
+                             side: BorderSide(color: (!isGunduzVardiyasi && saatSenaryosu == 1) ? Colors.indigoAccent : Colors.white24, width: (!isGunduzVardiyasi && saatSenaryosu == 1) ? 1.5 : 1),
+                             padding: EdgeInsets.zero, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6))
+                          ),
+                          onPressed: () => setD(() { isGunduzVardiyasi = false; saatSenaryosu = 1; _gruplariGuncelle(arsiveKaydet: false); }),
+                          child: Text("🌙 $n1Txt", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 1))
+                        )
+                      ),
+                      const SizedBox(height: 6),
+                      SizedBox(
+                        height: 35,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                             backgroundColor: (!isGunduzVardiyasi && saatSenaryosu == 2) ? Colors.indigoAccent.withOpacity(0.3) : Colors.transparent,
+                             foregroundColor: (!isGunduzVardiyasi && saatSenaryosu == 2) ? Colors.indigoAccent : Colors.white54,
+                             side: BorderSide(color: (!isGunduzVardiyasi && saatSenaryosu == 2) ? Colors.indigoAccent : Colors.white24, width: (!isGunduzVardiyasi && saatSenaryosu == 2) ? 1.5 : 1),
+                             padding: EdgeInsets.zero, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6))
+                          ),
+                          onPressed: () => setD(() { isGunduzVardiyasi = false; saatSenaryosu = 2; _gruplariGuncelle(arsiveKaydet: false); }),
+                          child: Text("🌙 $n2Txt", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 1))
+                        )
+                      ),
+                    ]
                   )
                 ),
-                const SizedBox(width: 6),
-                Expanded(
-                  flex: 3,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                       backgroundColor: cAI.withOpacity(0.15), foregroundColor: cAI,
-                       side: BorderSide(color: cAI, width: 1.5),
-                       padding: EdgeInsets.zero, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6))
-                    ),
-                    onPressed: () { _gruplariGuncelle(arsiveKaydet: true); Navigator.pop(context); },
-                    child: const Icon(Icons.check_circle, size: 20)
-                  )
-                ),
-              ]
+              ],
             );
           }),
           Padding(padding: const EdgeInsets.only(top: 8), child: Text("⚖️ Çoğunluk: $majT Tur | $hGerek Karınca - $eGerek Ağustos Böceği Gerekli${manuelHamal > 0 || manuelEnseci > 0 ? ' (Seçili: ${manuelHamal}K ${manuelEnseci}A)' : ''}", style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold))),
