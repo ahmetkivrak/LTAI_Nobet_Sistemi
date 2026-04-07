@@ -23,3 +23,6 @@ ltai_nobet_sistemi/.metadata
 # Gemini/Agent data
 .gemini/
 .agents/
+
+# Flutter SDK (Local download)
+ltai_nobet_sistemi/flutter_sdk/
