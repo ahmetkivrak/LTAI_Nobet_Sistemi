@@ -143,7 +143,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
   
   final String gasUrl = "https://script.google.com/macros/s/AKfycbwbwRw2XQTpnX9MgN4zJM6QDUg5JX_q4mqJ84B_ODPmkZAM00eDA4iUHDOuVzcPNIfr4A/exec";
 
-  final List<String> tumPersonelHavuzu = ["GP", "AI", "AK", "BE", "MK", "AN", "BA", "BL", "DE", "MI", "FL", "YT", "GI", "AP", "DC"];
+  final List<String> tumPersonelHavuzu = ["GP", "AI", "AK", "BE", "MK", "AN", "BA", "BL", "DE", "MI", "FL", "YT", "GI", "AP", "DO"];
   
   Map<String, Set<String>> gunlukDurum = {};
   Map<String, Set<String>> yetkiler = {}; 
@@ -159,6 +159,20 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
   Set<String> gece0809Secilenler = {};
   Set<String> geceOffSecilenler = {};
   Set<String> supOnlySecilenler = {}; // SUP ONLY Mikro Seçilimi
+  // NOT: Karınca (HAMAL) ve Aguştos Böceği (ENSECİ) bayrakları gunlukDurum içinde tutulur.
+  // Ayrı Set yoktur — gunlukDurum tek gerçek kaynağıdır.
+
+  /// Aktif kadro içinde herhangi biri manuel Karınca seçilmiş mi?
+  bool get _herhangiManuelKarinca => tumPersonelHavuzu.any((p) =>
+      !(gunlukDurum[p]?.contains('OFF') ?? false) &&
+      !(gunlukDurum[p]?.contains('KAZANDIŞI') ?? false) &&
+      (gunlukDurum[p]?.contains('HAMAL') ?? false));
+
+  /// Aktif kadro içinde herhangi biri manuel Aguştos Böceği seçilmiş mi?
+  bool get _herhangiManuelEnseci => tumPersonelHavuzu.any((p) =>
+      !(gunlukDurum[p]?.contains('OFF') ?? false) &&
+      !(gunlukDurum[p]?.contains('KAZANDIŞI') ?? false) &&
+      (gunlukDurum[p]?.contains('ENSECİ') ?? false));
 
   bool tamOtomatikDagitim = true;
   double gunlukSeviye = 4.0;
@@ -226,10 +240,12 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     
     _meteorolojiVerisiniCek();
     _trafikVerisiniCek();
+    _sadeceNotamVerisiniCek(); // Açılışta taze NOTAM'ları otomatik çek
     _trafikSlotlariniHesapla();
     gunlukSeviye = hakimSeviye;
     _gruplariGuncelle(arsiveKaydet: false);
     _loadNotamPrefs(); // Rozet tercihlerini yükle
+    _loadPersonelPrefs(); // Kişi listesi hafızadan yükle
   }
 
   void _tariheGoreVerileriGuncelle() {
@@ -498,16 +514,18 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     if (core == 'SUP') {
       bool isAnyActiveSup = false;
       if (aktifPersonelHavuzu != null) {
-         isAnyActiveSup = aktifPersonelHavuzu.any((k) => yetkiler[k]!.contains('SUP'));
+         isAnyActiveSup = aktifPersonelHavuzu.any((k) => (yetkiler[k] ?? <String>{}).contains('SUP'));
       } else {
-         isAnyActiveSup = tumPersonelHavuzu.any((k) => !gunlukDurum[k]!.contains('OFF') && !gunlukDurum[k]!.contains('KAZANDIŞI') && yetkiler[k]!.contains('SUP'));
+         isAnyActiveSup = tumPersonelHavuzu.any((k) => !gunlukDurum[k]!.contains('OFF') && !gunlukDurum[k]!.contains('KAZANDIŞI') && (yetkiler[k] ?? <String>{}).contains('SUP'));
       }
       if (!isAnyActiveSup) return true; 
-      return yetkiler[kisi]!.contains('SUP');
+      if (supOnlySecilenler.contains(kisi)) return true; 
+      return (yetkiler[kisi] ?? <String>{}).contains('SUP');
     } else {
-      if (yetkiler[kisi]!.isEmpty) return true; 
-      if (yetkiler[kisi]!.contains(pozisyon) || yetkiler[kisi]!.contains(core)) return true; 
-      if (acilDurum && yetkiler[kisi]!.length == 1 && yetkiler[kisi]!.contains('SUP')) return true; 
+      if (supOnlySecilenler.contains(kisi)) return false; 
+      if ((yetkiler[kisi] ?? <String>{}).isEmpty) return true; 
+      if ((yetkiler[kisi] ?? <String>{}).contains(pozisyon) || (yetkiler[kisi] ?? <String>{}).contains(core)) return true; 
+      if (acilDurum && (yetkiler[kisi] ?? <String>{}).length == 1 && (yetkiler[kisi] ?? <String>{}).contains('SUP')) return true; 
       return false;
     }
   }
@@ -765,7 +783,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     // ─── SUP kişileri farklı slotlara dağıt ───
     // 4 SUP kişi varsa her biri farklı slotun SUP'u olmalı
     // Hangi slotlarda zaten SUP kişi var?
-    Set<String> supHavuzu = aktifPersonel.where((k) => yetkiler[k]!.contains('SUP')).toSet();
+    Set<String> supHavuzu = aktifPersonel.where((k) => (yetkiler[k] ?? <String>{}).contains('SUP')).toSet();
     Map<int, int> slotSupSayisi = {for (int i = 0; i < slotCount; i++) i: 0};
     
     // Zaten atanmış SUP kişilerin slotlarını say
@@ -865,6 +883,18 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       if (assignedNum != null) {
         kisiNumara[k] = assignedNum;
         kullanilanlar.add(assignedNum);
+      }
+    }
+    
+    // SUP ONLY kişilerin atamalarını doğrula: sadece SUP pozisyonu olan slotlara atandıklarından emin ol
+    for (var k in aktifPersonel) {
+      if (!supOnlySecilenler.contains(k)) continue;
+      for (var entry in numaraSlotlari.entries) {
+        if (entry.value.contains(kisiNumara[k] == null ? -1 : kisiNumara[k]!)) {
+          // Bu numaranın slotlarında SUP pozisyonu var mı kontrol et
+          // (Phase 2'ye bırakıldı — Phase 2 zaten SUP ONLY'yi SUP koltuğuna atıyor)
+          break;
+        }
       }
     }
     
@@ -1157,7 +1187,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     // Kişinin bugün hangi pozisyonlarda oturduğunu takip et
     Map<String, List<String>> bugunkuPozisyonlar = {for (var k in aktifPersonel) k: []};
     
-    Set<String> supHavuzu = aktifPersonel.where((k) => (yetkiler[k] ?? <String>[]).contains('SUP')).toSet();
+    Set<String> supHavuzu = aktifPersonel.where((k) => (yetkiler[k] ?? <String>{}).contains('SUP')).toSet();
     Set<String> supYazmislar = {};
     
     for (int slot = 0; slot < slotCount; slot++) {
@@ -1250,7 +1280,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
           for (var k in kisiler) {
             if (atanmislar.contains(k)) continue;
             if (supHavuzu.contains(k)) {
-              var y = yetkiler[k] ?? <String>[];
+              var y = yetkiler[k] ?? <String>{};
               bool supOnly = y.length == 1 && y.contains('SUP');
               if (supOnly) { supKisi = k; break; }
             }
@@ -1302,17 +1332,23 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
         
         for (var k in kisiler) {
           if (atanmislar.contains(k)) continue;
+          // FIX 2: SUP ONLY kişi zaten ADIM 1'de SUP koltuğuna atandı;
+          // eğer bu slotta SUP pozisyonu yoksa veya SUP zaten doluysa bu kişiyi ASLA başka koltuğa atma
           if (supOnlySecilenler.contains(k)) continue; // SUP ONLY başka koltuğa atanamaz
           
           int score = 0;
           String core = pos.split('_')[0].split('/')[0];
           
           // Yetki kontrolü
-          var kYetki = yetkiler[k] ?? <String>[];
+          var kYetki = yetkiler[k] ?? <String>{};
           bool yetkili = kYetki.isEmpty || 
                          kYetki.contains(pos) || 
                          kYetki.contains(core);
           if (!yetkili) score -= 100000;
+          
+          if (kYetki.isNotEmpty && (kYetki.contains(pos) || kYetki.contains(core))) {
+            score += 50000;
+          }
           
           // Pozisyon çeşitliliği: daha önce bu pozisyonda oturmamış tercih et
           if (bugunkuPozisyonlar[k]!.contains(pos)) score -= 5000;
@@ -1371,6 +1407,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
           (p) => p.split('_')[0].split('/')[0] == core);
         
         if (!tekrarVar) continue; // Tekrar yok, swap gerekmez
+        if (supOnlySecilenler.contains(kisi)) continue; // SUP ONLY ASLA TAKAS EDİLMEZ
         if (core == 'SUP' && supHavuzu.contains(kisi)) continue; // SUP havuzu tekrar yapabilir
         
         // Aynı gruptaki başka biriyle swap et
@@ -1378,6 +1415,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
           String pos2 = entry2.key;
           String kisi2 = entry2.value;
           if (kisi2 == "-" || kisi2 == kisi) continue;
+          if (supOnlySecilenler.contains(kisi2)) continue; // SUP ONLY ASLA TAKAS EDİLMEZ
           
           String core2 = pos2.split('_')[0].split('/')[0];
           
@@ -1591,12 +1629,20 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     }
     
     Map<String, Map<String, dynamic>> bugunIstat = {};
+    bool herhangiManuelKarinca = _herhangiManuelKarinca;
+    bool herhangiManuelEnseci  = _herhangiManuelEnseci;
     for(var k in tumPersonelHavuzu) {
       int ts = turSayisi[k] ?? 0;
+      bool isHamal  = herhangiManuelKarinca
+          ? (gunlukDurum[k]?.contains('HAMAL') ?? false)
+          : (ts > majT);
+      bool isEnseci = herhangiManuelEnseci
+          ? (gunlukDurum[k]?.contains('ENSECİ') ?? false)
+          : (ts < majT && ts > 0);
       bugunIstat[k] = { 
         'DEL': delSayisi[k] ?? 0, 'TWR': twrSayisi[k] ?? 0, 'GND': gndSayisi[k] ?? 0, 'SUP': supSayisi[k] ?? 0, 
         'TUR': ts, 
-        'IS_HAMAL': ts > majT, 'IS_ENSECI': ts < majT && ts > 0,
+        'IS_HAMAL': isHamal, 'IS_ENSECI': isEnseci,
         'H_SAYI': ts > majT ? (ts - majT) : 0, 'E_SAYI': ts < majT && ts > 0 ? (majT - ts) : 0,
         'ILK_S': ilkSecilenler.contains(k),
         'ORTA_S': ortaSecilenler.contains(k),
@@ -2617,7 +2663,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                         Center(child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            if (isUyari) const Icon(Icons.push_pin, size: 14, color: Colors.redAccent)
+                            if (isUyari) const Icon(Icons.warning_amber_rounded, size: 14, color: Colors.redAccent)
                             else if (isPinned) Icon(Icons.push_pin, size: 12, color: themeColor),
                             Text(text, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                             if (optSaat.isNotEmpty) Text(optSaat, style: TextStyle(color: isUyari ? Colors.redAccent : themeColor, fontSize: 8, fontWeight: FontWeight.bold))
@@ -2692,6 +2738,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                             gunlukDurum[n] = {'A'}; 
                             yetkiler[n] = {}; 
                           });
+                          _savePersonelPrefs();
                           setD(() { _gruplariGuncelle(arsiveKaydet: false); }); 
                           Navigator.pop(context);
                         }
@@ -3004,6 +3051,38 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
   Set<String> _collapsedNotams = {};
   Map<String, String> _customNotamTags = {}; // id -> tagName
   Set<String> _collapsedEnglish = {}; // tracks collapsed English content
+
+  // ── Personel Kalıcılığı (SharedPreferences) ──
+  static const String _personelVersion = 'v2'; // Versiyon değişince önbellekteki eski liste göz ardı edilir
+  Future<void> _loadPersonelPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    // Versiyon kontrolu: eski önbellekte farklı versiyon varsa personeli kod listesiyle başlat
+    String savedVersion = prefs.getString('savedPersonelVersion') ?? '';
+    if (savedVersion != _personelVersion) {
+      // Önbellek versiyonu eski — ilk kayda zorla (kod listesindeki varsayılanı kaydet)
+      await prefs.setString('savedPersonelVersion', _personelVersion);
+      await prefs.setString('savedPersonel', json.encode(tumPersonelHavuzu));
+      return; // Kod listesindeki varsayılan listeyi kullan (DO var)
+    }
+    String? pJson = prefs.getString('savedPersonel');
+    if (pJson != null) {
+      List<dynamic> saved = json.decode(pJson);
+      setState(() {
+        tumPersonelHavuzu.clear();
+        tumPersonelHavuzu.addAll(List<String>.from(saved));
+        for (var k in tumPersonelHavuzu) {
+          if (!gunlukDurum.containsKey(k)) gunlukDurum[k] = {'A'};
+          if (!yetkiler.containsKey(k)) yetkiler[k] = {}; 
+        }
+      });
+      _gruplariGuncelle(arsiveKaydet: false);
+    }
+  }
+
+  Future<void> _savePersonelPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('savedPersonel', json.encode(tumPersonelHavuzu));
+  }
 
   // ── Rozet Kalıcılığı (SharedPreferences) ──
   Future<void> _loadNotamPrefs() async {
@@ -3569,6 +3648,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
             gunlukDurum[k] = {d};
           }
         } else {
+          // Diğer bayraklar: OFF/KAZANDIŞI burada yoktu, normal toggle
           gunlukDurum[k]!.remove('OFF');
           gunlukDurum[k]!.remove('KAZANDIŞI');
           if (!tamOtomatikDagitim && ['A','B','C','D','E'].contains(d)) {
@@ -3599,6 +3679,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
   }
 
   Widget _yetkiBtn(String k, String y, Function setD) {
+    yetkiler[k] ??= <String>{};
     bool s = yetkiler[k]!.contains(y);
     return InkWell(
       onTap: () => setD(() {
@@ -3673,6 +3754,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                           sonSecilenler.remove(k);
                           bizimleKalSecilenler.remove(k);
                         });
+                        _savePersonelPrefs();
                         setD(() { _gruplariGuncelle(arsiveKaydet: false); });
                         Navigator.pop(context);
                       },
@@ -3706,6 +3788,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                             yetkiler.remove(old);
                           }
                         });
+                        _savePersonelPrefs();
                         setD(() { _gruplariGuncelle(arsiveKaydet: false); });
                         Navigator.pop(context); 
                       }
