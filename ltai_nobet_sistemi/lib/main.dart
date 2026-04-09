@@ -193,6 +193,10 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
   Map<String, int> turSayisi = {}; 
   Map<String, int> supSayisi = {}; Map<String, int> twrSayisi = {}; Map<String, int> gndSayisi = {}; Map<String, int> delSayisi = {};
 
+  Map<int, Map<String, String>> _pozOtoNotlar = {}; // slot → {pozisyon: " (14:00)"}
+  /// İsimden oto-notu ayırır: "BE (14:00)" → "BE"
+  String _yalnIsim(String s) => s.contains(' (') ? s.split(' (')[0] : s;
+
   List<BordArsivi> tamArsiv = [];
 
 
@@ -482,11 +486,13 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     }
   }
 
-  void _gruplariGuncelle({bool arsiveKaydet = true}) {
+  void _gruplariGuncelle({bool arsiveKaydet = true, bool pinleriTemizle = true}) {
     setState(() { 
-      // Yeni hesaplamada tüm pinleri sıfırla (kullanıcı isteği: pinler sadece o anki oturumda geçerli)
-      _manuelAtananKisiler.remove(_aktifTarihVeMod);
-      _kilitliSaatlerTarihli.remove(_aktifTarihVeMod);
+      // Manuel pin koruması: pinleriTemizle=false ise mevcut pinler silinmez
+      if (pinleriTemizle) {
+        _manuelAtananKisiler.remove(_aktifTarihVeMod);
+        _kilitliSaatlerTarihli.remove(_aktifTarihVeMod);
+      }
       _trafikSlotlariniHesapla(); 
       _hafizayiSifirla(); 
       _arsiveOtomatikKaydet(kaydet: arsiveKaydet); 
@@ -886,17 +892,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       }
     }
     
-    // SUP ONLY kişilerin atamalarını doğrula: sadece SUP pozisyonu olan slotlara atandıklarından emin ol
-    for (var k in aktifPersonel) {
-      if (!supOnlySecilenler.contains(k)) continue;
-      for (var entry in numaraSlotlari.entries) {
-        if (entry.value.contains(kisiNumara[k] == null ? -1 : kisiNumara[k]!)) {
-          // Bu numaranın slotlarında SUP pozisyonu var mı kontrol et
-          // (Phase 2'ye bırakıldı — Phase 2 zaten SUP ONLY'yi SUP koltuğuna atıyor)
-          break;
-        }
-      }
-    }
+    // (SUP ONLY doğrulaması Phase 2 tarafından yapılır — ölü kod temizlendi)
     
     // ═══════════════════════════════════════════════════
     // ADIM 3: NUMARA → SLOT ATAMASINA ÇEVİR
@@ -1183,6 +1179,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
   ) {
     int slotCount = saatler.length;
     Map<int, Map<String, String>> gunlukPlan = {};
+    _pozOtoNotlar = {}; // Her hesaplamada oto-notları sıfırla
     
     // Kişinin bugün hangi pozisyonlarda oturduğunu takip et
     Map<String, List<String>> bugunkuPozisyonlar = {for (var k in aktifPersonel) k: []};
@@ -1246,6 +1243,8 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
             }
          }
       }
+
+      _pozOtoNotlar[slot] = Map.from(pozOtoNot); // Oto-notları ayrı sakla (isimle karıştırma)
 
       List<String> kisiler = List.from(slotAtamalari[slot] ?? []);
       
@@ -1314,7 +1313,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
         }
         
         if (supKisi != null) {
-          atama[supPos] = supKisi + (pozOtoNot[supPos] ?? "");
+          atama[supPos] = supKisi; // Yalın isim sakla (oto-not ayrı haritada)
           atanmislar.add(supKisi);
           supYazmislar.add(supKisi);
           bugunkuPozisyonlar[supKisi]!.add(supPos);
@@ -1369,7 +1368,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
         }
         
         if (bestK != null) {
-          atama[pos] = bestK + (pozOtoNot[pos] ?? "");
+          atama[pos] = bestK; // Yalın isim sakla (oto-not ayrı haritada)
           atanmislar.add(bestK);
           bugunkuPozisyonlar[bestK]!.add(pos);
         }
@@ -1604,23 +1603,35 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       for (String header in tabloBaslikSektorleri) {
         String cellText = "-";
         String headerCore = header.split('_')[0].split('/')[0];
+        String notKey = header; // Oto-not anahtarı
         
         if (atamalar.containsKey(header)) {
           cellText = atamalar[header]!;
+          notKey = header;
         }
         // Seviye farkı eşleme: atamada TWR varsa → TWR_W'ye yaz
         else if (headerCore == 'TWR' && atamalar.containsKey('TWR')) {
           cellText = (header == tabloBaslikSektorleri.firstWhere((h) => h.startsWith('TWR'), orElse: () => '')) ? atamalar['TWR']! : '-';
+          notKey = 'TWR';
         }
         else if (headerCore == 'GND' && atamalar.containsKey('GND')) {
           cellText = (header == tabloBaslikSektorleri.firstWhere((h) => h.startsWith('GND'), orElse: () => '')) ? atamalar['GND']! : '-';
+          notKey = 'GND';
         }
         // Seviye farkı: atamada TWR_W var ama tabloda TWR → ilk TWR varyantını yaz
         else if (header == 'TWR') {
           cellText = atamalar['TWR_W'] ?? atamalar['TWR_E'] ?? '-';
+          notKey = atamalar.containsKey('TWR_W') ? 'TWR_W' : 'TWR_E';
         }
         else if (header == 'GND') {
           cellText = atamalar['GND_S'] ?? atamalar['GND_N'] ?? atamalar['GND_C'] ?? '-';
+          notKey = atamalar.containsKey('GND_S') ? 'GND_S' : (atamalar.containsKey('GND_N') ? 'GND_N' : 'GND_C');
+        }
+        
+        // Oto-notu sadece UI gösterimi için ekle (istatistik/swap yalın isimle çalışır)
+        if (cellText != '-') {
+          String otoNot = _pozOtoNotlar[i]?[notKey] ?? '';
+          if (otoNot.isNotEmpty) cellText += otoNot;
         }
         
         row.add(cellText);
@@ -2462,7 +2473,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                           if (saatCtrl.text.trim().isNotEmpty) _kilitliSaatlerTarihli[_aktifTarihVeMod]![hIdx]![pos] = saatCtrl.text.trim();
                           else _kilitliSaatlerTarihli[_aktifTarihVeMod]![hIdx]!.remove(pos);
                         });
-                        _gruplariGuncelle(arsiveKaydet: false);
+                        _gruplariGuncelle(arsiveKaydet: false, pinleriTemizle: false);
                         Navigator.pop(context);
                       },
                       child: const Text("-", style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold, fontSize: 20))
@@ -2516,7 +2527,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                         if (!_manuelAtananKisiler[_aktifTarihVeMod]!.containsKey(hIdx)) _manuelAtananKisiler[_aktifTarihVeMod]![hIdx] = {};
                         _manuelAtananKisiler[_aktifTarihVeMod]![hIdx]![pos] = kisi;
                       });
-                      _gruplariGuncelle(arsiveKaydet: false);
+                      _gruplariGuncelle(arsiveKaydet: false, pinleriTemizle: false);
                       Navigator.pop(context);
                     },
                     child: Text(kisi, style: TextStyle(color: uygun ? Colors.white : Colors.white70, fontWeight: FontWeight.bold)),
@@ -2549,7 +2560,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                   _kilitliSaatlerTarihli[_aktifTarihVeMod]?[hIdx]?.remove(pos); 
                   _manuelAtananKisiler[_aktifTarihVeMod]?[hIdx]?.remove(pos); 
                 });
-                _gruplariGuncelle(arsiveKaydet: false);
+                _gruplariGuncelle(arsiveKaydet: false, pinleriTemizle: false);
                 Navigator.pop(context);
               },
               child: const Text("PİNİ KALDIR", style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold))
@@ -2631,17 +2642,18 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                   )
                 )));
               } else {
-                bool h = istat[text]?['IS_HAMAL'] ?? false; 
-                bool e = istat[text]?['IS_ENSECI'] ?? false;
+                String yIsim = _yalnIsim(text); // Oto-notu ayır: "BE (14:00)" → "BE"
+                bool h = istat[yIsim]?['IS_HAMAL'] ?? false; 
+                bool e = istat[yIsim]?['IS_ENSECI'] ?? false;
                 
                 bool isPinned = (_kilitliSaatlerTarihli[_aktifTarihVeMod]?[idx]?.containsKey(header) ?? false) || (_manuelAtananKisiler[_aktifTarihVeMod]?[idx]?.containsKey(header) ?? false);
                 String optSaat = _kilitliSaatlerTarihli[_aktifTarihVeMod]?[idx]?[header] ?? "";
 
                 List<String> prevR = idx > 0 ? sonBord.satirlar[idx - 1] : [];
                 List<String> nextR = idx < sonBord.satirlar.length - 1 ? sonBord.satirlar[idx + 1] : [];
-                bool isConflict = prevR.contains(text) || nextR.contains(text);
+                bool isConflict = prevR.any((c) => _yalnIsim(c) == yIsim) || nextR.any((c) => _yalnIsim(c) == yIsim);
                 String ccore = header.split('_')[0].split('/')[0];
-                bool isVizesiz = !_vizeKontrol(text, header, ccore);
+                bool isVizesiz = !_vizeKontrol(yIsim, header, ccore);
                 bool isUyari = (isConflict || isVizesiz) && text != "-";
 
                 rowCells.add(DataCell(GestureDetector(
