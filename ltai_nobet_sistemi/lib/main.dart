@@ -512,7 +512,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
         _kilitliSaatlerTarihli.remove(_aktifTarihVeMod);
       }
       _trafikSlotlariniHesapla(); 
-      _hafizayiSifirla(); 
       _arsiveOtomatikKaydet(kaydet: arsiveKaydet); 
     });
   }
@@ -703,8 +702,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     Set<String> aktifIlkSecilenler = this.ilkSecilenler.where((k) => aktifPersonel.contains(k)).toSet();
     Set<String> aktifSonSecilenler = this.sonSecilenler.where((k) => aktifPersonel.contains(k)).toSet();
     Set<String> aktifOrtaSecilenler = this.ortaSecilenler.where((k) => aktifPersonel.contains(k)).toSet();
-    
-
 
     Map<String, int> kisiNumara = {};
     Set<int> kullanilanlar = {};
@@ -1310,18 +1307,10 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       int startH = int.parse(saatler[slot].split(' - ')[0].split(':')[0]);
       int endH = int.parse(saatler[slot].split(' - ')[1].split(':')[0]);
 
-      bool isAraSlotu = false;
       Map<String, String> pozOtoNot = {};
       List<String> pozisyonlar = [];
-      
-      if (isAraSlotu) {
-         pozisyonlar = ['TWR', 'DEL']; // Kullanıcı kuralı: 03:00 her zaman 2 kişi
-      } else {
-         DateTime yarin = _aktifTarih.add(const Duration(days: 1));
-         String yarinStr = "${yarin.day.toString().padLeft(2, '0')}.${yarin.month.toString().padLeft(2, '0')}.${yarin.year}";
-         List<TrafikVerisi> yarinT24 = _haftalikTrafikKasa[yarinStr] ?? List.generate(24, (i) => TrafikVerisi(0, 0));
-         
-         List<int> sTaramasi = [];
+
+      List<int> sTaramasi = [];
          int h = startH;
          while(h != endH) {
             sTaramasi.add(h);
@@ -1331,8 +1320,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
          
          Map<int, List<String>> hPozisyonlar = {};
          for (int ah in sTaramasi) {
-            bool isYarin = false;
-            TrafikVerisi trf = isYarin ? yarinT24[ah] : anlikTrafik24[ah];
+            TrafikVerisi trf = anlikTrafik24[ah];
             double sLvlLocal = tamOtomatikDagitim ? _getIdealLevel(trf.genelToplam) : gunlukSeviye;
             hPozisyonlar[ah] = getSektorlerByLevel(sLvlLocal);
          }
@@ -1361,7 +1349,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                pozOtoNot[p] = " (-${bitisSaat.toString().padLeft(2, '0')}:00)";
             }
          }
-      }
 
       _pozOtoNotlar[slot] = Map.from(pozOtoNot); // Oto-notları ayrı sakla (isimle karıştırma)
 
@@ -1474,9 +1461,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
             (p) => p.split('_')[0].split('/')[0] == core);
           if (ayniCoreVar) score -= 3000;
           
-          // Mekanik "Ters Dizilim" Koruması: Listeye ne kadar erken girmişse o kadar öncelik kazanır (Kilitlenme riski kalmaz).
-          
-
           // Gündüz Zigzag rotasyonu
           if (bugunkuPozisyonlar[k]!.isNotEmpty) {
             String lastCore = bugunkuPozisyonlar[k]!.last.split('_')[0].split('/')[0];
@@ -1674,8 +1658,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
         aktifBK.add(hepsi.first);
       }
     }
-
-
 
     // BK kişisi aktif kadroda KALIR (shift çalışır, sadece son slota atanamaz)
 
@@ -2237,8 +2219,8 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
 
     return DataTable(
         headingRowHeight: 40.0, 
-        dataRowHeight: rowH,
-        headingRowColor: MaterialStateProperty.all(Colors.blueAccent.withOpacity(0.15)),
+        dataRowMinHeight: rowH, dataRowMaxHeight: rowH,
+        headingRowColor: WidgetStateProperty.all(Colors.blueAccent.withOpacity(0.15)),
         headingTextStyle: TextStyle(fontWeight: FontWeight.bold, color: Colors.lightBlueAccent, fontSize: fontS),
         dataTextStyle: TextStyle(color: Colors.white, fontSize: fontS),
         columnSpacing: 25,
@@ -2321,7 +2303,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
         });
         for (var row in b.satirlar) {
            for (int i=1; i<row.length; i++) {
-              String worker = row[i];
+              String worker = _yalnIsim(row[i]);
               if (worker == "-" || !aggIstat.containsKey(worker)) continue;
               String header = b.basliklar[i-1];
               if (header.contains("TWR")) aggIstat[worker]!['TWR'] = (aggIstat[worker]!['TWR'] as int) + 1;
@@ -2342,7 +2324,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
               children: [ Padding(padding: const EdgeInsets.all(12.0), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   const SizedBox(height: 8),
                   SingleChildScrollView(scrollDirection: Axis.horizontal, child: DataTable(
-                    columnSpacing: 15, headingRowHeight: 36, dataRowHeight: 56, border: TableBorder.all(color: Colors.white12),
+                    columnSpacing: 15, headingRowHeight: 36, dataRowMinHeight: 56, dataRowMaxHeight: 56, border: TableBorder.all(color: Colors.white12),
                     columns: [ 
                       const DataColumn(label: SizedBox(width: 40, child: Center(child: Text("")))),
                       DataColumn(label: Text(arsiv.tarihMetni, style: const TextStyle(color: Colors.blueAccent, fontSize: 11, fontWeight: FontWeight.bold))), 
@@ -2381,7 +2363,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
         });
       } else {
         contentWidget = gosterilecek.isEmpty ? const Center(child: Text("Kayıt yok.", style: TextStyle(color: Colors.white54))) : SingleChildScrollView(child: DataTable(
-            columnSpacing: 10, headingRowHeight: 40, dataRowHeight: 45, border: TableBorder.all(color: Colors.white12),
+            columnSpacing: 10, headingRowHeight: 40, dataRowMinHeight: 45, dataRowMaxHeight: 45, border: TableBorder.all(color: Colors.white12),
             columns: [ 
               const DataColumn(label: SizedBox(width: 60, child: Text(""))), 
               const DataColumn(label: Text("DEL", style: TextStyle(fontSize: 10))), 
@@ -2463,7 +2445,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
           IconButton(icon: const Icon(Icons.airplanemode_active, color: Colors.greenAccent), tooltip: "Trafik Sayısı", onPressed: _isiHaritasiniAc),
           IconButton(icon: const Text("🌦️", style: TextStyle(fontSize: 22)), tooltip: "LTAI Meteorological Info", onPressed: _airgramEkraniAc),
           IconButton(icon: const Icon(Icons.assignment_late, color: Colors.amber), tooltip: "NOTAM", onPressed: _notamEkraniAc),
-          IconButton(icon: const Icon(Icons.handshake, color: Colors.purpleAccent), tooltip: "HOTO (Devir/Teslim)", onPressed: () {}),
+          IconButton(icon: const Icon(Icons.handshake, color: Colors.purpleAccent), tooltip: "HOTO (Devir/Teslim)", onPressed: () {}), // TODO: HOTO ekranı eklenecek
           IconButton(icon: const Icon(Icons.settings, color: Colors.orangeAccent), tooltip: "Ayarlar ve Bord Planlama", onPressed: _kadroSecimEkraniAc),
           const SizedBox(width: 10),
         ],
@@ -2620,19 +2602,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("⚠️ ${isGunduzVardiyasi ? 'Gündüz' : 'Gece'} vardiyasına uymayan mantıksız bir saat girdiniz!"), backgroundColor: Colors.redAccent));
                           return;
                         }
-                      // Uyarı göster ama seçimi engelleme
-                      if (!uygun) {
-                        List<String> uyarilar = [];
-                        if (vizeSiz) uyarilar.add("$kisi için $core yetkisi yok");
-                        if (prevWorked) uyarilar.add("Önceki saat çalışıyor");
-                        if (nextWorked) uyarilar.add("Sonraki saat çalışıyor");
-                        if (isBizimleKal) uyarilar.add("Son saat Bizimle Kal nöbetinde");
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                          content: Text("⚠️ ${uyarilar.join(' | ')} — Yine de pinlendi!"),
-                          backgroundColor: Colors.orange.shade800,
-                          duration: const Duration(seconds: 3)
-                        ));
-                      }
                       // Her durumda pini kaydet (kısaltılmış süre notu)
                       setState(() {
                         if (!_kilitliSaatlerTarihli.containsKey(_aktifTarihVeMod)) _kilitliSaatlerTarihli[_aktifTarihVeMod] = {};
@@ -2701,7 +2670,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       mainAxisSize: MainAxisSize.min, 
       children: [
       Expanded(child: SingleChildScrollView(scrollDirection: Axis.vertical, child: SingleChildScrollView(scrollDirection: Axis.horizontal, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        DataTable(columnSpacing: 15, dataRowHeight: 65, headingRowHeight: 36, border: TableBorder.all(color: borderColor, width: 1), headingRowColor: MaterialStateProperty.all(Colors.black),
+        DataTable(columnSpacing: 15, dataRowMinHeight: 65, dataRowMaxHeight: 65, headingRowHeight: 36, border: TableBorder.all(color: borderColor, width: 1), headingRowColor: WidgetStateProperty.all(Colors.black),
           columns: [ 
             const DataColumn(label: SizedBox(width: 40, child: Center(child: Text("")))),
             DataColumn(label: Text(_aktifTarihStr, style: TextStyle(color: themeColor, fontWeight: FontWeight.bold, fontSize: 12))), 
@@ -3952,6 +3921,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     );
   }
 
+  // NOT: Saat düzenlemeleri session-only — uygulama kapanınca varsayılanlara döner (kasıtlı)
   void _saatDuzenle(int i) {
     TextEditingController c = TextEditingController(text: saatler[i]);
     showDialog(

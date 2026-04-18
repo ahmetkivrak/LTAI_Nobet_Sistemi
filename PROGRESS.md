@@ -2,6 +2,15 @@
 
 ## Version History & Changelog
 
+### v2.3 Code Review & Cleanup (April 19, 2026)
+*   **Bug Fix — Archive Statistics Aggregator**: Fixed a critical bug where auto-noted names like `"BE (14:00)"` were not recognized in the statistics window. Applied `_yalnIsim()` to strip auto-notes before matching, ensuring partial-shift workers are counted correctly in DEL/TWR/GND/SUP tallies.
+*   **Dead Code Removal**: Removed unreachable `isAraSlotu` flag and `if (isAraSlotu)` block from Phase 2 (daytime engine only — night engine has its own `isAra` logic). Removed unused `isYarin`, `yarinT24`, and `yarinStr` variables that were always false/unused in the daytime-only context.
+*   **Redundant Call Cleanup**: Removed duplicate `_hafizayiSifirla()` invocation in `_gruplariGuncelle()` — the call inside `_arsiveOtomatikKaydet()` is sufficient.
+*   **Pin UI Declutter**: Removed SnackBar warning popups from manual pin dialog (green/red visual indicators retained for informational purposes).
+*   **Deprecated API Migration**: Updated `MaterialStateProperty` → `WidgetStateProperty` and `dataRowHeight` → `dataRowMinHeight`/`dataRowMaxHeight` across all DataTable instances (Flutter 3.19+ compliance).
+*   **Misc Cleanup**: Removed dead comments, extra blank lines, added HOTO TODO placeholder, added session-only documentation for time editing behavior.
+
+---
 ### v2.2 State Isolation Update (April 19, 2026)
 *   **Separation of Concerns (Day vs. Night)**: Split the previously global manual preference states (`gunlukDurum`, `ilkSecilenler`, `ortaSecilenler`, `sonSecilenler`, `bizimleKalSecilenler`, `supOnlySecilenler`) into independent `Gunduz` and `Gece` trackers.
 *   **Prevented Cascade Conflicts**: Handled a critical issue where applying restrictive tags (like `SUP ONLY` or `BİZİMLE KAL`) in the Day schedule silently persisted in the Night schedule, creating artificially empty seating slots because the restricted constraints could not be mapped to the newly computed sector limits.
