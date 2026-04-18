@@ -145,20 +145,37 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
 
   final List<String> tumPersonelHavuzu = ["GP", "AI", "AK", "BE", "MK", "AN", "BA", "BL", "DE", "MI", "FL", "YT", "GI", "AP", "DO"];
   
-  Map<String, Set<String>> gunlukDurum = {};
+  Map<String, Set<String>> _gunlukDurumGunduz = {};
+  Map<String, Set<String>> _gunlukDurumGece = {};
+  Map<String, Set<String>> get gunlukDurum => isGunduzVardiyasi ? _gunlukDurumGunduz : _gunlukDurumGece;
+
   Map<String, Set<String>> yetkiler = {}; 
   
-  Set<String> ilkSecilenler = {};
-  Set<String> ortaSecilenler = {};
-  Set<String> sonSecilenler = {};
-  Set<String> bizimleKalSecilenler = {};
+  Set<String> _ilkSecilenlerGunduz = {};
+  Set<String> _ilkSecilenlerGece = {};
+  Set<String> get ilkSecilenler => isGunduzVardiyasi ? _ilkSecilenlerGunduz : _ilkSecilenlerGece;
+
+  Set<String> _ortaSecilenlerGunduz = {};
+  Set<String> _ortaSecilenlerGece = {};
+  Set<String> get ortaSecilenler => isGunduzVardiyasi ? _ortaSecilenlerGunduz : _ortaSecilenlerGece;
+
+  Set<String> _sonSecilenlerGunduz = {};
+  Set<String> _sonSecilenlerGece = {};
+  Set<String> get sonSecilenler => isGunduzVardiyasi ? _sonSecilenlerGunduz : _sonSecilenlerGece;
+
+  Set<String> _bizimleKalSecilenlerGunduz = {};
+  Set<String> _bizimleKalSecilenlerGece = {};
+  Set<String> get bizimleKalSecilenler => isGunduzVardiyasi ? _bizimleKalSecilenlerGunduz : _bizimleKalSecilenlerGece;
+
+  Set<String> _supOnlySecilenlerGunduz = {};
+  Set<String> _supOnlySecilenlerGece = {};
+  Set<String> get supOnlySecilenler => isGunduzVardiyasi ? _supOnlySecilenlerGunduz : _supOnlySecilenlerGece;
 
   Set<String> gece1203Secilenler = {};
   Set<String> geceAraSecilenler = {};
   Set<String> gece0508Secilenler = {};
   Set<String> gece0809Secilenler = {};
   Set<String> geceOffSecilenler = {};
-  Set<String> supOnlySecilenler = {}; // SUP ONLY Mikro Seçilimi
   // NOT: Karınca (HAMAL) ve Aguştos Böceği (ENSECİ) bayrakları gunlukDurum içinde tutulur.
   // Ayrı Set yoktur — gunlukDurum tek gerçek kaynağıdır.
 
@@ -231,7 +248,8 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     for (var k in tumPersonelHavuzu) {
-      gunlukDurum[k] = {'A'};
+      _gunlukDurumGunduz[k] = {'A'};
+      _gunlukDurumGece[k] = {'A'};
       yetkiler[k] = {}; 
     }
     
@@ -1747,12 +1765,8 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     bool herhangiManuelEnseci  = _herhangiManuelEnseci;
     for(var k in tumPersonelHavuzu) {
       int ts = turSayisi[k] ?? 0;
-      bool isHamal  = herhangiManuelKarinca
-          ? (gunlukDurum[k]?.contains('HAMAL') ?? false)
-          : (ts > majT);
-      bool isEnseci = herhangiManuelEnseci
-          ? (gunlukDurum[k]?.contains('ENSECİ') ?? false)
-          : (ts < majT && ts > 0);
+      bool isHamal  = (gunlukDurum[k]?.contains('HAMAL') ?? false) || (ts > majT);
+      bool isEnseci = (gunlukDurum[k]?.contains('ENSECİ') ?? false) || (ts < majT && ts > 0);
       bugunIstat[k] = { 
         'DEL': delSayisi[k] ?? 0, 'TWR': twrSayisi[k] ?? 0, 'GND': gndSayisi[k] ?? 0, 'SUP': supSayisi[k] ?? 0, 
         'TUR': ts, 
@@ -2840,7 +2854,8 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                         if (n.isNotEmpty && !tumPersonelHavuzu.contains(n)) {
                           setState(() {
                             tumPersonelHavuzu.add(n);
-                            gunlukDurum[n] = {'A'}; 
+                            _gunlukDurumGunduz[n] = {'A'}; 
+                            _gunlukDurumGece[n] = {'A'}; 
                             yetkiler[n] = {}; 
                           });
                           _savePersonelPrefs();
@@ -3183,7 +3198,8 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
           tumPersonelHavuzu.clear();
           tumPersonelHavuzu.addAll(List<String>.from(saved));
           for (var k in tumPersonelHavuzu) {
-            if (!gunlukDurum.containsKey(k)) gunlukDurum[k] = {'A'};
+            if (!_gunlukDurumGunduz.containsKey(k)) _gunlukDurumGunduz[k] = {'A'};
+            if (!_gunlukDurumGece.containsKey(k)) _gunlukDurumGece[k] = {'A'};
             if (!yetkiler.containsKey(k)) yetkiler[k] = {}; 
           }
         });
@@ -3866,12 +3882,19 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                         setState(() {
                           String k = tumPersonelHavuzu[i];
                           tumPersonelHavuzu.removeAt(i);
-                          gunlukDurum.remove(k);
+                          _gunlukDurumGunduz.remove(k);
+                          _gunlukDurumGece.remove(k);
                           yetkiler.remove(k);
-                          ilkSecilenler.remove(k);
-                          ortaSecilenler.remove(k);
-                          sonSecilenler.remove(k);
-                          bizimleKalSecilenler.remove(k);
+                          _ilkSecilenlerGunduz.remove(k);
+                          _ilkSecilenlerGece.remove(k);
+                          _ortaSecilenlerGunduz.remove(k);
+                          _ortaSecilenlerGece.remove(k);
+                          _sonSecilenlerGunduz.remove(k);
+                          _sonSecilenlerGece.remove(k);
+                          _bizimleKalSecilenlerGunduz.remove(k);
+                          _bizimleKalSecilenlerGece.remove(k);
+                          _supOnlySecilenlerGunduz.remove(k);
+                          _supOnlySecilenlerGece.remove(k);
                         });
                         _savePersonelPrefs();
                         setD(() { _gruplariGuncelle(arsiveKaydet: false); });
@@ -3894,16 +3917,23 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                           String n = c.text.trim().toUpperCase();
                           if (n.isNotEmpty && n != old) {
                             tumPersonelHavuzu[i] = n;
-                            gunlukDurum[n] = gunlukDurum[old]!;
+                            _gunlukDurumGunduz[n] = _gunlukDurumGunduz[old]!;
+                            _gunlukDurumGece[n] = _gunlukDurumGece[old]!;
                             yetkiler[n] = yetkiler[old]!;
                             
-                            if(ilkSecilenler.contains(old)) { ilkSecilenler.remove(old); ilkSecilenler.add(n); }
-                            if(ortaSecilenler.contains(old)) { ortaSecilenler.remove(old); ortaSecilenler.add(n); }
-                            if(sonSecilenler.contains(old)) { sonSecilenler.remove(old); sonSecilenler.add(n); }
-                            if(bizimleKalSecilenler.contains(old)) { bizimleKalSecilenler.remove(old); bizimleKalSecilenler.add(n); }
-                            if(supOnlySecilenler.contains(old)) { supOnlySecilenler.remove(old); supOnlySecilenler.add(n); }
+                            if(_ilkSecilenlerGunduz.contains(old)) { _ilkSecilenlerGunduz.remove(old); _ilkSecilenlerGunduz.add(n); }
+                            if(_ilkSecilenlerGece.contains(old)) { _ilkSecilenlerGece.remove(old); _ilkSecilenlerGece.add(n); }
+                            if(_ortaSecilenlerGunduz.contains(old)) { _ortaSecilenlerGunduz.remove(old); _ortaSecilenlerGunduz.add(n); }
+                            if(_ortaSecilenlerGece.contains(old)) { _ortaSecilenlerGece.remove(old); _ortaSecilenlerGece.add(n); }
+                            if(_sonSecilenlerGunduz.contains(old)) { _sonSecilenlerGunduz.remove(old); _sonSecilenlerGunduz.add(n); }
+                            if(_sonSecilenlerGece.contains(old)) { _sonSecilenlerGece.remove(old); _sonSecilenlerGece.add(n); }
+                            if(_bizimleKalSecilenlerGunduz.contains(old)) { _bizimleKalSecilenlerGunduz.remove(old); _bizimleKalSecilenlerGunduz.add(n); }
+                            if(_bizimleKalSecilenlerGece.contains(old)) { _bizimleKalSecilenlerGece.remove(old); _bizimleKalSecilenlerGece.add(n); }
+                            if(_supOnlySecilenlerGunduz.contains(old)) { _supOnlySecilenlerGunduz.remove(old); _supOnlySecilenlerGunduz.add(n); }
+                            if(_supOnlySecilenlerGece.contains(old)) { _supOnlySecilenlerGece.remove(old); _supOnlySecilenlerGece.add(n); }
                             
-                            gunlukDurum.remove(old);
+                            _gunlukDurumGunduz.remove(old);
+                            _gunlukDurumGece.remove(old);
                             yetkiler.remove(old);
                           }
                         });

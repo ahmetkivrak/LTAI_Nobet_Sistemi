@@ -2,6 +2,13 @@
 
 ## Version History & Changelog
 
+### v2.2 State Isolation Update (April 19, 2026)
+*   **Separation of Concerns (Day vs. Night)**: Split the previously global manual preference states (`gunlukDurum`, `ilkSecilenler`, `ortaSecilenler`, `sonSecilenler`, `bizimleKalSecilenler`, `supOnlySecilenler`) into independent `Gunduz` and `Gece` trackers.
+*   **Prevented Cascade Conflicts**: Handled a critical issue where applying restrictive tags (like `SUP ONLY` or `BİZİMLE KAL`) in the Day schedule silently persisted in the Night schedule, creating artificially empty seating slots because the restricted constraints could not be mapped to the newly computed sector limits.
+*   **State Transparency**: Actions in one UI context are now isolated from the other using `isGunduzVardiyasi` proxy getters/setters, ensuring that each generated schedule has untampered access to its specific pool configuration.
+
+---
+
 ### v2.1 Stability Update (April 18, 2026)
 *   **Edge Case Protection**: Added division-by-zero safeguards when `anlikTrafik` is empty on initialization.
 *   **Null Safety (SharedPreferences)**: Enforced `try-catch` structures around JSON operations for `Personel` and `NotamPrefs` loading to prevent application crashes on launch with corrupt data.
