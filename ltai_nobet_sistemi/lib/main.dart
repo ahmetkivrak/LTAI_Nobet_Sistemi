@@ -575,7 +575,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
           bool oSaatMevcut = false;
           bool localParcali = false;
           for (int i = 1; i < satir.length; i++) {
-             if (satir[i].contains(k)) {
+             if (_yalnIsim(satir[i]) == k) {
                 oSaatMevcut = true;
                 if (satir[i].contains('(') || satir[i].contains(')')) {
                   localParcali = true;
@@ -611,7 +611,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
         for (int slotIdx = 0; slotIdx < a.satirlar.length; slotIdx++) {
            var satir = a.satirlar[slotIdx];
            for (int i = 1; i < satir.length; i++) {
-              if (satir[i].contains(k)) {
+              if (_yalnIsim(satir[i]) == k) {
                  karne.gunduzGorev++;
                  karne.gunduzToplamSlotIndeksi += slotIdx;
                  break; // Bu saat diliminde pozisyonda oturmuş
@@ -3864,6 +3864,11 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                           _bizimleKalSecilenlerGece.remove(k);
                           _supOnlySecilenlerGunduz.remove(k);
                           _supOnlySecilenlerGece.remove(k);
+                          gece1203Secilenler.remove(k);
+                          geceAraSecilenler.remove(k);
+                          gece0508Secilenler.remove(k);
+                          gece0809Secilenler.remove(k);
+                          geceOffSecilenler.remove(k);
                         });
                         _savePersonelPrefs();
                         setD(() { _gruplariGuncelle(arsiveKaydet: false); });
@@ -3900,7 +3905,11 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                             if(_bizimleKalSecilenlerGece.contains(old)) { _bizimleKalSecilenlerGece.remove(old); _bizimleKalSecilenlerGece.add(n); }
                             if(_supOnlySecilenlerGunduz.contains(old)) { _supOnlySecilenlerGunduz.remove(old); _supOnlySecilenlerGunduz.add(n); }
                             if(_supOnlySecilenlerGece.contains(old)) { _supOnlySecilenlerGece.remove(old); _supOnlySecilenlerGece.add(n); }
-                            
+                            if(gece1203Secilenler.contains(old)) { gece1203Secilenler.remove(old); gece1203Secilenler.add(n); }
+                            if(geceAraSecilenler.contains(old)) { geceAraSecilenler.remove(old); geceAraSecilenler.add(n); }
+                            if(gece0508Secilenler.contains(old)) { gece0508Secilenler.remove(old); gece0508Secilenler.add(n); }
+                            if(gece0809Secilenler.contains(old)) { gece0809Secilenler.remove(old); gece0809Secilenler.add(n); }
+                            if(geceOffSecilenler.contains(old)) { geceOffSecilenler.remove(old); geceOffSecilenler.add(n); }
                             _gunlukDurumGunduz.remove(old);
                             _gunlukDurumGece.remove(old);
                             yetkiler.remove(old);
