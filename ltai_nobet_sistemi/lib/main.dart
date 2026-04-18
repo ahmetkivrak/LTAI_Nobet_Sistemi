@@ -922,254 +922,355 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
   }
 
   // ════════════════════════════════════════════════
-  // GECE MODE — 3 AŞAMALI TERS ATAMA ALGORİTMASI
-  //
-  //  AŞAMA 1: Sabit grupları ata (Gece, ARA, Sabah, SonSaat)
-  //  AŞAMA 2: Akşam slotlarını senaryoya göre ters-eşle
-  //           20:40 → Gece:Slot0, ARA:Slot1, kalanlar:Slot2
-  //           21:15 → Gece+ARA:Slot0, kalanlar:Slot1
-  //  AŞAMA 3: Gece/ARA slotları sabit 2 kişi (level bypass)
+  // GECE MODE — NUMARA SİSTEMLİ TERS ATAMA ALGORİTMASI
   // ════════════════════════════════════════════════
-  Map<int, List<String>> _gecePhase1SlotAtama(List<String> aktifPersonel) {
+  Map<int, Map<String, String>> _geceAtama(List<String> aktifPersonel) {
     int slotCount = saatler.length;
-    Map<int, List<String>> sonuc = {for (int i = 0; i < slotCount; i++) i: []};
+    Map<int, Map<String, String>> gunlukPlan = {for (int i = 0; i < slotCount; i++) i: {}};
+    if (aktifPersonel.isEmpty) return gunlukPlan;
 
-    if (aktifPersonel.isEmpty) return sonuc;
+    // Gündüz motorundaki bugunkuPozisyonlar'ın gece karşılığı — zigzag ve swap için
+    Map<String, List<String>> bugunkuPozisyonlar = {for (var k in aktifPersonel) k: []};
 
-    // ─── Slot indekslerini saate göre bul ───
+    // ─────────────────────────────────────────────
+    // ADIM 1: Slot Öncelik Sıralaması
+    // ─────────────────────────────────────────────
+    List<int> siralama = [];
     String _slotBaslangic(int s) => saatler[s].split(' - ')[0];
 
-    // Gece slotu: 00:00-03:00 (20:40) veya 23:30-03:00 (21:15)
-    int geceSlotIdx    = List.generate(slotCount, (i) => i).firstWhere(
-        (s) => _slotBaslangic(s) == '00:00' || _slotBaslangic(s) == '23:30',
-        orElse: () => -1);
-    // ARA slotu: 03:00-05:30
-    int araSlotIdx     = List.generate(slotCount, (i) => i).firstWhere(
-        (s) => _slotBaslangic(s) == '03:00', orElse: () => -1);
-    // Sabah slotu: 05:30-08:00
-    int sabahSlotIdx   = List.generate(slotCount, (i) => i).firstWhere(
-        (s) => _slotBaslangic(s) == '05:30', orElse: () => -1);
-    // Son Saat slotu: 08:00-09:00
-    int sonSaatSlotIdx = List.generate(slotCount, (i) => i).firstWhere(
-        (s) => _slotBaslangic(s) == '08:00', orElse: () => -1);
+    int sabahSlotIdx   = List.generate(slotCount, (i) => i).firstWhere((s) => _slotBaslangic(s) == '05:30', orElse: () => -1);
+    int araSlotIdx     = List.generate(slotCount, (i) => i).firstWhere((s) => _slotBaslangic(s) == '03:00', orElse: () => -1);
+    int geceSlotIdx    = List.generate(slotCount, (i) => i).firstWhere((s) => _slotBaslangic(s) == '00:00' || _slotBaslangic(s) == '23:30', orElse: () => -1);
+    int sonSaatSlotIdx = List.generate(slotCount, (i) => i).firstWhere((s) => _slotBaslangic(s) == '08:00', orElse: () => -1);
 
-    // ─── AŞAMA 1: Sabit 4 grup (kullanıcı seçimi veya yorgunluk fallback) ───
-    Set<String> atanmis = {};
-
-
-
-    // YENİ SİSTEM: Oran ve Son Gece Rolüne Göre Sınıflandırma
-    List<String> _rolIcinSec(String rolHedef, int n, Set<String> havuz) {
-      if (n <= 0) return [];
-      var liste = havuz.where((k) => aktifPersonel.contains(k) && !atanmis.contains(k)).toList();
-      
-      liste.sort((a, b) {
-        var ka = _getPersonelKarnesi(a);
-        var kb = _getPersonelKarnesi(b);
-        
-        // KURAL 1: Son Gece Rolü aynı olanı sona at (Ardışıklık yasağı)
-        bool aAyni = ka.sonGeceRolu == rolHedef;
-        bool bAyni = kb.sonGeceRolu == rolHedef;
-        if (aAyni != bAyni) return aAyni ? 1 : -1;
-        
-        // KURAL 2: O roldeki oranına göre artan sırala
-        double oranA = rolHedef == 'GECE' ? ka.oranGece : (rolHedef == 'ARA' ? ka.oranAra : ka.oranSabah);
-        double oranB = rolHedef == 'GECE' ? kb.oranGece : (rolHedef == 'ARA' ? kb.oranAra : kb.oranSabah);
-        if (oranA != oranB) return oranA.compareTo(oranB);
-
-        // KURAL 3: Eşitlik durumunda toplam en az nöbet tutanı seç
-        return ka.toplamGeceGorev.compareTo(kb.toplamGeceGorev);
-      });
-      
-      return liste.take(n).toList();
+    List<int> aksamSlotIdxs = [];
+    for (int i = 0; i < slotCount; i++) {
+      if (i == sabahSlotIdx || i == araSlotIdx || i == geceSlotIdx || i == sonSaatSlotIdx) continue;
+      if (geceSlotIdx == -1 || i < geceSlotIdx) {
+        aksamSlotIdxs.add(i);
+      }
     }
 
-    // --- Gece Grubu (Dinamik Kişi) ---
-    List<String> geceGrubu = [];
-    int geceKap = 2; // Isı haritası sıfır olsa bile güvenli sınır
-    if (geceSlotIdx >= 0) {
-      geceKap = getSektorlerByLevel(
-          _getIdealLevel(anlikTrafik[geceSlotIdx % anlikTrafik.length].genelToplam)).length;
-      geceKap = (geceKap - 1).clamp(2, 5); // SUP'u düş
-    }
+    if (sabahSlotIdx != -1) siralama.add(sabahSlotIdx);
+    if (araSlotIdx != -1) siralama.add(araSlotIdx);
+    if (geceSlotIdx != -1) siralama.add(geceSlotIdx);
+    siralama.addAll(aksamSlotIdxs);
+    if (sonSaatSlotIdx != -1 && sonSaatSlotIdx > sabahSlotIdx) siralama.add(sonSaatSlotIdx);
+
+    // ─────────────────────────────────────────────
+    // ADIM 2: Kişilere Numara Ata
+    // ─────────────────────────────────────────────
+    List<String> siraliKisiler = [];
+    List<String> kalanlar = List.from(aktifPersonel);
+    kalanlar.removeWhere((k) => geceOffSecilenler.contains(k));
     
-    var geceSecim = gece1203Secilenler.where((k) => aktifPersonel.contains(k) && !atanmis.contains(k)).toList();
-    if (geceSecim.isNotEmpty) {
-      geceGrubu = geceSecim.take(geceKap).toList();
-      if (geceGrubu.length < geceKap) {
-        geceGrubu.addAll(_rolIcinSec('GECE', geceKap - geceGrubu.length, aktifPersonel.toSet().difference(atanmis)));
-      }
-    } else {
-      geceGrubu = _rolIcinSec('GECE', geceKap, aktifPersonel.toSet());
-    }
-    atanmis.addAll(geceGrubu);
-
-    // --- ARA Grubu (2 kişi) ---
-    List<String> araGrubu = [];
-    var araSecim = geceAraSecilenler.where((k) => aktifPersonel.contains(k) && !atanmis.contains(k)).toList();
-    if (araSecim.isNotEmpty) {
-      araGrubu = araSecim.take(2).toList();
-    } else {
-      araGrubu = _rolIcinSec('ARA', 2, aktifPersonel.toSet().difference(atanmis));
-    }
-    atanmis.addAll(araGrubu);
-
-    // --- Sabah Grubu (N kişi — trafik bazlı) ---
-    List<String> sabahGrubu = [];
-    if (sabahSlotIdx >= 0) {
-      int sabahKap = getSektorlerByLevel(
-          _getIdealLevel(anlikTrafik[sabahSlotIdx % anlikTrafik.length].genelToplam)).length;
-      sabahKap = (sabahKap - 1).clamp(2, 5); // SUP'u düş
-      var sabahSecim = gece0508Secilenler.where((k) => aktifPersonel.contains(k) && !atanmis.contains(k)).toList();
-      if (sabahSecim.isNotEmpty) {
-        sabahGrubu = sabahSecim.take(sabahKap).toList();
-        if (sabahGrubu.length < sabahKap) {
-          sabahGrubu.addAll(_rolIcinSec('SABAH', sabahKap - sabahGrubu.length, aktifPersonel.toSet().difference(atanmis)));
-        }
-      } else {
-        sabahGrubu = _rolIcinSec('SABAH', sabahKap, aktifPersonel.toSet().difference(atanmis));
-      }
-      atanmis.addAll(sabahGrubu);
-    }
-
-    // --- Son Saat Grubu ---
-    List<String> sonSaatGrubu = [];
-    if (sonSaatSlotIdx >= 0) {
-      int ssKap = getSektorlerByLevel(
-          _getIdealLevel(anlikTrafik[sonSaatSlotIdx % anlikTrafik.length].genelToplam)).length;
-      ssKap = (ssKap - 1).clamp(2, 5);
-      var ssSecim = gece0809Secilenler.where((k) => aktifPersonel.contains(k) && !atanmis.contains(k)).toList();
-      if (ssSecim.isNotEmpty) {
-        sonSaatGrubu = ssSecim.take(ssKap).toList();
-        if (sonSaatGrubu.length < ssKap) {
-          sonSaatGrubu.addAll(_rolIcinSec('SABAH', ssKap - sonSaatGrubu.length, aktifPersonel.toSet().difference(atanmis)));
-        }
-      } else {
-        sonSaatGrubu = _rolIcinSec('SABAH', ssKap, aktifPersonel.toSet().difference(atanmis));
-      }
-      atanmis.addAll(sonSaatGrubu);
-    }
-
-    // --- OFF Grubu (tüm gece vardiyasından dışarıda) ---
-    Set<String> offGrubu = geceOffSecilenler.where((k) => aktifPersonel.contains(k)).toSet();
-
-    // --- Kalan kişiler (akşam slotlarını dolduracak) ---
-    List<String> kalanlar = aktifPersonel
-        .where((k) => !atanmis.contains(k) && !offGrubu.contains(k))
-        .toList();
+    // Yeni sarmal için sıralama: gece1203 ilk (gece (00:00) pozisyonuna denk gelir),
+    // sonra geceAra, sonra gece0508 (sabah pozisyonuna denk gelir)
+    for (var k in gece1203Secilenler) { if (kalanlar.contains(k)) { siraliKisiler.add(k); kalanlar.remove(k); } }
+    for (var k in geceAraSecilenler)  { if (kalanlar.contains(k)) { siraliKisiler.add(k); kalanlar.remove(k); } }
+    for (var k in gece0508Secilenler) { if (kalanlar.contains(k)) { siraliKisiler.add(k); kalanlar.remove(k); } }
     kalanlar.sort((a, b) => _getArsivYorgunlukOrtalamasi(a).compareTo(_getArsivYorgunlukOrtalamasi(b)));
+    siraliKisiler.addAll(kalanlar);
+    
+    if (siraliKisiler.isEmpty) return gunlukPlan;
 
-    // ─── AŞAMA 2: Akşam slotlarını senaryoya göre ters eşle ───
+    // ─────────────────────────────────────────────
+    // ADIM 3: Slot Kapasitelerini ve OtoNotları Belirle
+    // ─────────────────────────────────────────────
+    Map<int, List<String>> slotPozisyonlari = {};
+    DateTime yarin = _aktifTarih.add(const Duration(days: 1));
+    String yarinStr = "${yarin.day.toString().padLeft(2, '0')}.${yarin.month.toString().padLeft(2, '0')}.${yarin.year}";
+    List<TrafikVerisi> yarinT24 = _haftalikTrafikKasa[yarinStr] ?? List.generate(24, (i) => TrafikVerisi(0, 0));
+
+    for (int slotIdx = 0; slotIdx < slotCount; slotIdx++) {
+      String slotSaat = saatler[slotIdx];
+      bool isAra = (slotIdx == araSlotIdx);
+      bool isGece = (slotIdx == geceSlotIdx);
+      bool isSabah = (slotIdx == sabahSlotIdx); // 05:30-08:00 — SUP yok
+      
+      int startH = int.parse(slotSaat.split(' - ')[0].split(':')[0]);
+      int endH = int.parse(slotSaat.split(' - ')[1].split(':')[0]);
+      
+      List<int> sTaramasi = [];
+      int h = startH;
+      while (h != endH) {
+        sTaramasi.add(h);
+        h = (h + 1) % 24;
+      }
+      if (sTaramasi.isEmpty) sTaramasi.add(startH);
+
+      Map<int, List<String>> hPozisyonlar = {};
+      for (int ah in sTaramasi) {
+        bool isYarin = (ah < 12);
+        TrafikVerisi trf = isYarin ? yarinT24[ah] : anlikTrafik24[ah];
+        double sLvlLocal = tamOtomatikDagitim ? _getIdealLevel(trf.genelToplam) : gunlukSeviye;
+        hPozisyonlar[ah] = getSektorlerByLevel(sLvlLocal);
+      }
+
+      List<String> pozlar = [];
+      Map<String, String> pozOtoNot = {};
+
+      if (isAra) {
+        pozlar = ['TWR', 'DEL'];
+      } else if (isGece) {
+        pozlar = ['TWR', 'DEL'];
+        if (sTaramasi.isNotEmpty) {
+           int ilkSaat = sTaramasi.first;
+           for (var p in hPozisyonlar[ilkSaat]!) {
+              if (!p.startsWith('SUP') && !pozlar.contains(p)) {
+                 pozlar.add(p);
+                 int bitisH = (ilkSaat + 1) % 24;
+                 pozOtoNot[p] = " (-${bitisH.toString().padLeft(2, '0')}:00)";
+              }
+           }
+        }
+      } else {
+        for (int ah in sTaramasi) {
+          if (hPozisyonlar[ah]!.length > pozlar.length) pozlar = List.from(hPozisyonlar[ah]!);
+        }
+        // Sabah slotunda (05:30-08:00) SUP yok — gerekirse manuel yazılır
+        if (isSabah) pozlar.removeWhere((p) => p.startsWith('SUP'));
+        for (String p in pozlar) {
+           if (p.startsWith('SUP')) continue;
+           int firstH = -1;
+           int lastH = -1;
+           for (int i = 0; i < sTaramasi.length; i++) {
+              if (hPozisyonlar[sTaramasi[i]]!.contains(p)) {
+                 if (firstH == -1) firstH = i;
+                 lastH = i;
+              }
+           }
+           if (firstH > 0) pozOtoNot[p] = " (${sTaramasi[firstH].toString().padLeft(2, '0')}:00)";
+           else if (lastH >= 0 && lastH < sTaramasi.length - 1) pozOtoNot[p] = " (-${sTaramasi[lastH + 1].toString().padLeft(2, '0')}:00)";
+        }
+      }
+      slotPozisyonlari[slotIdx] = pozlar;
+      _pozOtoNotlar[slotIdx] = Map.from(pozOtoNot);
+    }
+
+    // ─────────────────────────────────────────────
+    // ADIM 4: Kronolojik İki-Sarmal Sistemi
     //
-    // Senaryo tespiti: geceAlengirli'de 21:15 başlangıcı var mı?
-    bool is2115 = saatSenaryosu == 2; // senaryosu==2 → geceAlengirli (21:15)
+    //  Akşam sarmalı : [Akİlk → AkOrta → AkSon] (artan saat)
+    //  Gece sarmalı  : [Gece → ARA → Sabah → SonSaat] (artan saat)
+    //  Her sarmal kendi içinde kişi[posIdx % N] şeklinde döner.
+    //  geceOffSecilenler sadece akşam sarmalında yer alır.
+    //  Mikro seçilimler geceListe sırasını belirler (gece1203 önce, gece0508 son).
+    // ─────────────────────────────────────────────
 
-    if (is2115) {
-      // ─── 21:15 Senaryosu: 2 akşam slotu ───
-      // Slot 0 (19:00-21:15): Gece + ARA + kalanlardan tamamla
-      // Slot 1 (21:15-23:30): Sabah + SonSaat + kalanlardan (Gece+ARA hariç)
-      int aks0 = 0; // 19:00-21:15
-      int aks1 = 1; // 21:15-23:30
+    // Akşam slotları artan sırala (19:00 → 20:40 → 22:20)
+    List<int> aksamSiralanmis = List.from(aksamSlotIdxs);
+    aksamSiralanmis.sort((a, b) {
+      int aH = int.parse(saatler[a].split(' - ')[0].split(':')[0]);
+      int bH = int.parse(saatler[b].split(' - ')[0].split(':')[0]);
+      return aH.compareTo(bH);
+    });
 
-      int aks0Kap = getSektorlerByLevel(_getIdealLevel(
-          anlikTrafik[aks0 % anlikTrafik.length].genelToplam)).length - 1; // SUP düş
-      int aks1Kap = getSektorlerByLevel(_getIdealLevel(
-          anlikTrafik[aks1 % anlikTrafik.length].genelToplam)).length - 1;
+    // Gece slotları kronolojik sıra
+    List<int> geceSirali = [];
+    if (geceSlotIdx   != -1) geceSirali.add(geceSlotIdx);
+    if (araSlotIdx    != -1) geceSirali.add(araSlotIdx);
+    if (sabahSlotIdx  != -1) geceSirali.add(sabahSlotIdx);
+    if (sonSaatSlotIdx != -1) geceSirali.add(sonSaatSlotIdx);
 
-      // Slot 0: Gece (Asil+Parcali) + ARA zorunlu, kalanlardan tamamla
-      List<String> slot0Kisiler = [...geceGrubu, ...araGrubu];
-      int slot0Doldurmak = (aks0Kap - slot0Kisiler.length).clamp(0, kalanlar.length);
-      List<String> slot0Ekstra = kalanlar.sublist(0, slot0Doldurmak);
-      slot0Kisiler.addAll(slot0Ekstra);
-      // TERS (REVERSE) DAĞITIM UYGULAMASI (Akşam Çeşitliliği için)
-      sonuc[aks0] = slot0Kisiler.reversed.toList();
-
-      // Slot 1: Sabah + SonSaat zorunlu, kalanlardan tamamla (Gece+ARA hariç)
-      List<String> slot1Kisiler = [...sabahGrubu, ...sonSaatGrubu];
-      List<String> slot1Kalanlar = kalanlar.sublist(slot0Doldurmak); // slot0'da kullanılmayanlar
-      int slot1Doldurmak = (aks1Kap - slot1Kisiler.length).clamp(0, slot1Kalanlar.length);
-      slot1Kisiler.addAll(slot1Kalanlar.sublist(0, slot1Doldurmak));
-      sonuc[aks1] = slot1Kisiler.reversed.toList();
-    } else {
-      // ─── 20:40 Senaryosu: 3 akşam slotu ───
-      // Slot 0 (19:00-20:40): Gece grubu zorunlu, kalanlardan tamamla
-      // Slot 1 (20:40-22:20): ARA grubu zorunlu, kalanlardan tamamla
-      // Slot 2 (22:20-00:00): Sabah + SonSaat + kalanlardan (Gece+ARA dinleniyor)
-      int aks0 = 0;
-      int aks1 = 1;
-      int aks2 = 2;
-
-      int aks0Kap = (getSektorlerByLevel(_getIdealLevel(
-          anlikTrafik[aks0 % anlikTrafik.length].genelToplam)).length - 1).clamp(2, 6);
-      int aks1Kap = (getSektorlerByLevel(_getIdealLevel(
-          anlikTrafik[aks1 % anlikTrafik.length].genelToplam)).length - 1).clamp(2, 6);
-      int aks2Kap = (getSektorlerByLevel(_getIdealLevel(
-          anlikTrafik[aks2 % anlikTrafik.length].genelToplam)).length - 1).clamp(2, 6);
-
-      // Slot 0: Gece zorunlu
-      List<String> slot0Kisiler = [...geceGrubu];
-      int slot0Doldur = (aks0Kap - slot0Kisiler.length).clamp(0, kalanlar.length);
-      slot0Kisiler.addAll(kalanlar.sublist(0, slot0Doldur));
-      sonuc[aks0] = slot0Kisiler.reversed.toList();
-
-      // Slot 1: ARA zorunlu
-      List<String> slot1Kisiler = [...araGrubu];
-      List<String> aks1Kalanlar = kalanlar.sublist(slot0Doldur);
-      int slot1Doldur = (aks1Kap - slot1Kisiler.length).clamp(0, aks1Kalanlar.length);
-      slot1Kisiler.addAll(aks1Kalanlar.sublist(0, slot1Doldur));
-      sonuc[aks1] = slot1Kisiler.reversed.toList();
-
-      // Slot 2: Sabah + SonSaat + kalanlar
-      List<String> slot2Kisiler = [...sabahGrubu, ...sonSaatGrubu];
-      List<String> aks2Kalanlar = aks1Kalanlar.sublist(slot1Doldur);
-      int slot2Doldur = (aks2Kap - slot2Kisiler.length).clamp(0, aks2Kalanlar.length);
-      slot2Kisiler.addAll(aks2Kalanlar.sublist(0, slot2Doldur));
-      sonuc[aks2] = slot2Kisiler.reversed.toList();
+    // Akşam listesi: tüm siraliKisiler + geceOff kişileri sona ekle
+    List<String> aksamListe = List.from(siraliKisiler);
+    for (var k in geceOffSecilenler) {
+      if (aktifPersonel.contains(k) && !aksamListe.contains(k)) aksamListe.add(k);
     }
 
-    // ─── AŞAMA 3: Gece ve ARA slotlarını SABİT ata ───
-    if (geceSlotIdx >= 0) sonuc[geceSlotIdx] = List.from(geceGrubu);
-    if (araSlotIdx >= 0)  sonuc[araSlotIdx]  = List.from(araGrubu);
-    if (sabahSlotIdx >= 0) {
-      // Sabah slotunu da zorla sabah grubuyla doldur
-      List<String> sabahSlot = List.from(sabahGrubu);
-      // Kalanlardan sabah slotuna ek kişi ekle (yorgunluğa göre)
-      List<String> sabahEkstra = aktifPersonel
-          .where((k) => !sabahSlot.contains(k)
-              && !geceGrubu.contains(k)
-              && !araGrubu.contains(k)
-              && !offGrubu.contains(k))
-          .toList();
-      sabahEkstra.sort((a, b) => _getArsivYorgunlukOrtalamasi(a).compareTo(_getArsivYorgunlukOrtalamasi(b)));
-      int sabahKap = getSektorlerByLevel(
-          _getIdealLevel(anlikTrafik[sabahSlotIdx % anlikTrafik.length].genelToplam)).length;
-      sabahKap = (sabahKap - 1).clamp(2, 5);
-      while (sabahSlot.length < sabahKap && sabahEkstra.isNotEmpty) {
-        sabahSlot.add(sabahEkstra.removeAt(0));
+    // Gece listesi: siraliKisiler (geceOff zaten yok)
+    List<String> geceListe = List.from(siraliKisiler);
+
+    Map<int, List<String>> slotTakiKisiler = {};
+
+    // ── AKŞAM SARMALI ──
+    int aksamN = aksamListe.length;
+    int aksamPosIdx = 0;
+    for (int slotIdx in aksamSiralanmis) {
+      if (!slotPozisyonlari.containsKey(slotIdx)) continue;
+      int kap = slotPozisyonlari[slotIdx]!.length;
+      List<String> sonuc = [];
+      for (int j = 0; j < kap && aksamN > 0; j++) {
+        sonuc.add(aksamListe[aksamPosIdx % aksamN]);
+        aksamPosIdx++;
       }
-      sonuc[sabahSlotIdx] = sabahSlot;
-    }
-    if (sonSaatSlotIdx >= 0) {
-      List<String> ssSlot = List.from(sonSaatGrubu);
-      List<String> ssEkstra = aktifPersonel
-          .where((k) => !ssSlot.contains(k)
-              && !geceGrubu.contains(k)
-              && !araGrubu.contains(k)
-              && !offGrubu.contains(k))
-          .toList();
-      ssEkstra.sort((a, b) => _getArsivYorgunlukOrtalamasi(a).compareTo(_getArsivYorgunlukOrtalamasi(b)));
-      int ssKap = getSektorlerByLevel(
-          _getIdealLevel(anlikTrafik[sonSaatSlotIdx % anlikTrafik.length].genelToplam)).length;
-      ssKap = (ssKap - 1).clamp(2, 5);
-      while (ssSlot.length < ssKap && ssEkstra.isNotEmpty) {
-        ssSlot.add(ssEkstra.removeAt(0));
-      }
-      sonuc[sonSaatSlotIdx] = ssSlot;
+      slotTakiKisiler[slotIdx] = sonuc;
     }
 
-    return sonuc;
+    // ── GECE SARMALI ──
+    int geceN = geceListe.length;
+    int gecePosIdx = 0;
+    for (int slotIdx in geceSirali) {
+      if (!slotPozisyonlari.containsKey(slotIdx)) continue;
+      int kap = slotPozisyonlari[slotIdx]!.length;
+      List<String> sonuc = [];
+      for (int j = 0; j < kap && geceN > 0; j++) {
+        sonuc.add(geceListe[gecePosIdx % geceN]);
+        gecePosIdx++;
+      }
+      slotTakiKisiler[slotIdx] = sonuc;
+    }
+
+    // ─────────────────────────────────────────────
+    // ADIM 5: Kronolojik Pozisyon Ataması (Zigzag)
+    // ─────────────────────────────────────────────
+    Set<String> supHavuzu = tumPersonelHavuzu.where((k) => (yetkiler[k] ?? <String>{}).contains('SUP')).toSet();
+
+    for (int slotIdx = 0; slotIdx < slotCount; slotIdx++) {
+      if (!slotTakiKisiler.containsKey(slotIdx)) continue;
+      
+      List<String> pozList = slotPozisyonlari[slotIdx]!;
+      List<String> kList = slotTakiKisiler[slotIdx]!;
+      Map<String, String> atama = {for (var p in pozList) p: "-"};
+      Set<String> atanmislar = {};
+      
+      String? supPos = pozList.firstWhere((p) => p.split('_')[0].split('/')[0] == 'SUP', orElse: () => '');
+      if (supPos.isNotEmpty) {
+        String? supKisi;
+        for (var k in kList) {
+          if (supOnlySecilenler.contains(k)) { supKisi = k; break; }
+        }
+        if (supKisi == null) {
+          int minSupOturma = 9999;
+          for (var k in kList) {
+            if (supHavuzu.contains(k)) {
+              int s = bugunkuPozisyonlar[k]!.where((p) => p.startsWith('SUP')).length;
+              if (s < minSupOturma) {
+                minSupOturma = s;
+                supKisi = k;
+              }
+            }
+          }
+        }
+        if (supKisi != null) {
+          atama[supPos] = supKisi;
+          atanmislar.add(supKisi);
+          bugunkuPozisyonlar[supKisi]!.add(supPos);
+        }
+      }
+
+      for (var pos in pozList) {
+        if (atama[pos] != "-") continue;
+        
+        String core = pos.split('_')[0].split('/')[0];
+        String? bestK;
+        int bestScore = -999999;
+        
+        for (var k in kList) {
+          if (atanmislar.contains(k)) continue;
+          if (supOnlySecilenler.contains(k)) continue; 
+          
+          int score = 0;
+          var kYetki = yetkiler[k] ?? <String>{};
+          bool yetkili = kYetki.isEmpty || kYetki.contains(pos) || kYetki.contains(core);
+          if (!yetkili) score -= 10000;
+          if (kYetki.isNotEmpty && (kYetki.contains(pos) || kYetki.contains(core))) score += 5000;
+          
+          int oSayi = bugunkuPozisyonlar[k]!.where((p) => p.split('_')[0].split('/')[0] == core).length;
+          score -= oSayi * 2000;
+          
+          if (bugunkuPozisyonlar[k]!.isNotEmpty) {
+            String lastCore = bugunkuPozisyonlar[k]!.last.split('_')[0].split('/')[0];
+            if (lastCore != core) score += 500;
+          }
+          
+          if (score > bestScore) {
+            bestScore = score;
+            bestK = k;
+          }
+        }
+        
+        if (bestK != null) {
+          atama[pos] = bestK;
+          atanmislar.add(bestK);
+          bugunkuPozisyonlar[bestK]!.add(pos);
+        }
+      }
+      gunlukPlan[slotIdx] = atama;
+    }
+
+    // ─────────────────────────────────────────────
+    // ADIM 6: Swap / İnce Ayar
+    // ─────────────────────────────────────────────
+    for (int slotIdx = 0; slotIdx < slotCount; slotIdx++) {
+      if (!gunlukPlan.containsKey(slotIdx)) continue;
+      Map<String, String> atama = gunlukPlan[slotIdx]!;
+      
+      for (var entry in atama.entries.toList()) {
+        String pos = entry.key;
+        String kisi = entry.value;
+        if (kisi == "-") continue;
+        
+        String core = pos.split('_')[0].split('/')[0];
+        List<String> oncekiPozlar = bugunkuPozisyonlar[kisi]!
+            .sublist(0, bugunkuPozisyonlar[kisi]!.indexOf(pos) >= 0 ? bugunkuPozisyonlar[kisi]!.indexOf(pos) : 0);
+            
+        bool tekrarVar = oncekiPozlar.any((p) => p.split('_')[0].split('/')[0] == core);
+        if (!tekrarVar) continue;
+        
+        if (supOnlySecilenler.contains(kisi)) continue;
+        if (core == 'SUP' && supHavuzu.contains(kisi)) continue;
+        
+        for (var entry2 in atama.entries.toList()) {
+          String pos2 = entry2.key;
+          String kisi2 = entry2.value;
+          if (kisi2 == "-" || kisi2 == kisi) continue;
+          if (supOnlySecilenler.contains(kisi2)) continue;
+          
+          String core2 = pos2.split('_')[0].split('/')[0];
+          
+          int posIdx2 = bugunkuPozisyonlar[kisi2]!.indexOf(pos2);
+          List<String> prev2Poslar = bugunkuPozisyonlar[kisi2]!
+              .sublist(0, posIdx2 >= 0 ? posIdx2 : 0);
+          bool kisi2TekrarPos = prev2Poslar.any((p) => p.split('_')[0].split('/')[0] == core);
+          bool kisi1TekrarPos2 = oncekiPozlar.any((p) => p.split('_')[0].split('/')[0] == core2);
+          
+          if (core == 'SUP' && !supHavuzu.contains(kisi2)) continue;
+          if (core2 == 'SUP' && !supHavuzu.contains(kisi)) continue;
+          
+          if (!kisi2TekrarPos && !kisi1TekrarPos2) {
+            atama[pos] = kisi2;
+            atama[pos2] = kisi;
+            bugunkuPozisyonlar[kisi]!.remove(pos);
+            bugunkuPozisyonlar[kisi]!.add(pos2);
+            bugunkuPozisyonlar[kisi2]!.remove(pos2);
+            bugunkuPozisyonlar[kisi2]!.add(pos);
+            break;
+          }
+        }
+      }
+    }
+
+    // ─────────────────────────────────────────────
+    // ADIM 7: MANUEL PİN KİŞİ ATAMALARI
+    // ─────────────────────────────────────────────
+    _manuelAtananKisiler[_aktifTarihVeMod]?.removeWhere((slot, pinMap) {
+      if (slot >= slotCount) return true;
+      pinMap.removeWhere((pos, kisi) => kisi != "-" && !aktifPersonel.contains(kisi));
+      return pinMap.isEmpty;
+    });
+    
+    for (int slot = 0; slot < slotCount; slot++) {
+      Map<String, String>? manuelPinler = _manuelAtananKisiler[_aktifTarihVeMod]?[slot];
+      if (manuelPinler != null && gunlukPlan.containsKey(slot)) {
+        manuelPinler.forEach((pos, kisi) {
+           if (!gunlukPlan[slot]!.containsKey(pos)) return;
+           
+           String? eskiKisi = gunlukPlan[slot]![pos];
+           if (eskiKisi != null && eskiKisi != "-") {
+              bugunkuPozisyonlar[eskiKisi]?.remove(pos);
+           }
+           gunlukPlan[slot]![pos] = kisi;
+           if (kisi != "-" && bugunkuPozisyonlar.containsKey(kisi)) {
+              bugunkuPozisyonlar[kisi]!.add(pos);
+           }
+        });
+      }
+    }
+
+    return gunlukPlan;
   }
-
   /// Phase 2: Zigzag pozisyon atama + SUP havuzu + ince ayar
   /// Döndürür: {slotIndex: {pozisyon: kişi, ...}, ...}
   Map<int, Map<String, String>> _phase2PozisyonAtama(
@@ -1191,7 +1292,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       int startH = int.parse(saatler[slot].split(' - ')[0].split(':')[0]);
       int endH = int.parse(saatler[slot].split(' - ')[1].split(':')[0]);
 
-      bool isAraSlotu = (!isGunduzVardiyasi && saatler[slot].startsWith('03:00'));
+      bool isAraSlotu = false;
       Map<String, String> pozOtoNot = {};
       List<String> pozisyonlar = [];
       
@@ -1212,7 +1313,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
          
          Map<int, List<String>> hPozisyonlar = {};
          for (int ah in sTaramasi) {
-            bool isYarin = !isGunduzVardiyasi && (ah < 12);
+            bool isYarin = false;
             TrafikVerisi trf = isYarin ? yarinT24[ah] : anlikTrafik24[ah];
             double sLvlLocal = tamOtomatikDagitim ? _getIdealLevel(trf.genelToplam) : gunlukSeviye;
             hPozisyonlar[ah] = getSektorlerByLevel(sLvlLocal);
@@ -1356,10 +1457,10 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
           if (ayniCoreVar) score -= 3000;
           
           // Mekanik "Ters Dizilim" Koruması: Listeye ne kadar erken girmişse o kadar öncelik kazanır (Kilitlenme riski kalmaz).
-          if (!isGunduzVardiyasi) score += (kisiler.length - kisiler.indexOf(k)) * 50;
+          
 
           // Gündüz Zigzag rotasyonu
-          if (isGunduzVardiyasi && bugunkuPozisyonlar[k]!.isNotEmpty) {
+          if (bugunkuPozisyonlar[k]!.isNotEmpty) {
             String lastCore = bugunkuPozisyonlar[k]!.last.split('_')[0].split('/')[0];
             if (lastCore != core) score += 2000;
           }
@@ -1581,13 +1682,15 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     List<TrafikVerisi> tempGercekciTrf = []; 
     List<HavaDurumu> tempHava = [];
     
-    // Phase 1: Kim hangi slota?
-    Map<int, List<String>> slotAtamalari = isGunduzVardiyasi
-        ? _phase1SlotAtama(aktifPersonel)
-        : _gecePhase1SlotAtama(aktifPersonel);
-    
-    // Phase 2: Pozisyon ataması (post-process pinleri de içerir)
-    Map<int, Map<String, String>> gunlukPlan = _phase2PozisyonAtama(slotAtamalari, aktifPersonel, aktifBK);
+    Map<int, Map<String, String>> gunlukPlan = {};
+    if (isGunduzVardiyasi) {
+      // GÜNDÜZ: Phase 1 (Slotlara dağılım) + Phase 2 (Pozisyonlara dağılım)
+      Map<int, List<String>> slotAtamalari = _phase1SlotAtama(aktifPersonel);
+      gunlukPlan = _phase2PozisyonAtama(slotAtamalari, aktifPersonel, aktifBK);
+    } else {
+      // GECE: Bağımsız Motor (Numara tabanlı tam atama)
+      gunlukPlan = _geceAtama(aktifPersonel);
+    }
     
     // İstatistikleri hesapla (post-process sonrası doğru veriler)
     _istatistikleriYenidenHesapla(gunlukPlan);
@@ -2646,15 +2749,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                 bool h = istat[yIsim]?['IS_HAMAL'] ?? false; 
                 bool e = istat[yIsim]?['IS_ENSECI'] ?? false;
                 
-                bool isPinned = (_kilitliSaatlerTarihli[_aktifTarihVeMod]?[idx]?.containsKey(header) ?? false) || (_manuelAtananKisiler[_aktifTarihVeMod]?[idx]?.containsKey(header) ?? false);
                 String optSaat = _kilitliSaatlerTarihli[_aktifTarihVeMod]?[idx]?[header] ?? "";
-
-                List<String> prevR = idx > 0 ? sonBord.satirlar[idx - 1] : [];
-                List<String> nextR = idx < sonBord.satirlar.length - 1 ? sonBord.satirlar[idx + 1] : [];
-                bool isConflict = prevR.any((c) => _yalnIsim(c) == yIsim) || nextR.any((c) => _yalnIsim(c) == yIsim);
-                String ccore = header.split('_')[0].split('/')[0];
-                bool isVizesiz = !_vizeKontrol(yIsim, header, ccore);
-                bool isUyari = (isConflict || isVizesiz) && text != "-";
 
                 rowCells.add(DataCell(GestureDetector(
                   onTap: () => _manuelAtamaPenceresiAc(idx, header, text),
@@ -2662,11 +2757,11 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                     margin: const EdgeInsets.all(4), 
                     padding: const EdgeInsets.symmetric(horizontal: 10), 
                     decoration: BoxDecoration(
-                      color: isUyari ? Colors.redAccent.withOpacity(0.15) : (isPinned ? themeBgColor : (h ? Colors.pinkAccent.withOpacity(0.25) : (e ? Colors.lightBlueAccent.withOpacity(0.25) : Colors.transparent))), 
+                      color: h ? Colors.pinkAccent.withOpacity(0.25) : (e ? Colors.lightBlueAccent.withOpacity(0.25) : Colors.transparent), 
                       borderRadius: BorderRadius.circular(4), 
                       border: Border.all(
-                        color: isUyari ? Colors.redAccent : (isPinned ? themeColor : (h ? Colors.pinkAccent : (e ? Colors.lightBlueAccent : themeColor.withOpacity(0.3)))), 
-                        width: (isPinned || isUyari) ? 2 : ((h || e) ? 1.5 : 1)
+                        color: h ? Colors.pinkAccent : (e ? Colors.lightBlueAccent : themeColor.withOpacity(0.3)), 
+                        width: (h || e) ? 1.5 : 1
                       )
                     ), 
                     child: Stack(
@@ -2675,10 +2770,8 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                         Center(child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            if (isUyari) const Icon(Icons.warning_amber_rounded, size: 14, color: Colors.redAccent)
-                            else if (isPinned) Icon(Icons.push_pin, size: 12, color: themeColor),
                             Text(text, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                            if (optSaat.isNotEmpty) Text(optSaat, style: TextStyle(color: isUyari ? Colors.redAccent : themeColor, fontSize: 8, fontWeight: FontWeight.bold))
+                            if (optSaat.isNotEmpty) Text(optSaat, style: TextStyle(color: themeColor, fontSize: 8, fontWeight: FontWeight.bold))
                           ],
                         ))
                       ]
@@ -2772,10 +2865,14 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       // BK kişisi aktif kadroda (shift çalışır), OFF ve KAZANDIŞI hariç
       int tCount = tumPersonelHavuzu.where((k) => !gunlukDurum[k]!.contains('OFF') && !gunlukDurum[k]!.contains('KAZANDIŞI')).length;
       int totalSlots = 0;
-      for (int i = 0; i < saatler.length; i++) {
-        int trf = anlikTrafik[i % anlikTrafik.length].genelToplam;
-        double lvl = _getIdealLevel(trf);
-        totalSlots += getSektorlerByLevel(lvl).length;
+      if (anlikTrafik.isNotEmpty) {
+        for (int i = 0; i < saatler.length; i++) {
+          int trf = anlikTrafik[i % anlikTrafik.length].genelToplam;
+          double lvl = tamOtomatikDagitim ? _getIdealLevel(trf) : gunlukSeviye;
+          totalSlots += getSektorlerByLevel(lvl).length;
+        }
+      } else {
+        totalSlots = getSektorlerByLevel(gunlukSeviye).length * saatler.length;
       }
       
       int baseTur = tCount > 0 ? (totalSlots ~/ tCount) : 0;
@@ -2916,7 +3013,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
               ],
             );
           }),
-          Padding(padding: const EdgeInsets.only(top: 8), child: Text("⚖️ Çoğunluk: $majT Tur | $hGerek Karınca - $eGerek Ağustos Böceği Gerekli${manuelHamal > 0 || manuelEnseci > 0 ? ' (Seçili: ${manuelHamal}K ${manuelEnseci}A)' : ''}", style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold))),
+          Padding(padding: const EdgeInsets.only(top: 8), child: Text(isGunduzVardiyasi ? "⚖️ Çoğunluk: $majT Tur | $hGerek Karınca - $eGerek Ağustos Böceği Gerekli${manuelHamal > 0 || manuelEnseci > 0 ? ' (Seçili: ${manuelHamal}K ${manuelEnseci}A)' : ''}" : "⚖️ Ortalama: $majT Tur Tahmini", style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold))),
           
           const SizedBox(height: 10),
           SingleChildScrollView(
@@ -2980,7 +3077,9 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                       _durumBtn(k, 'D', Colors.blue, setD, "D"), 
                       _durumBtn(k, 'E', Colors.blue, setD, "E"),
                     ],
-                    _durumBtn(k, 'OFF', Colors.redAccent, setD, "İZİN"), _durumBtn(k, 'KAZANDIŞI', Colors.grey, setD, "KAZANDIŞI"), _durumBtn(k, 'HAMAL', Colors.pinkAccent, setD, "KARINCA"), _durumBtn(k, 'ENSECİ', Colors.lightBlueAccent, setD, "AĞUSTOS BÖCEĞİ") 
+                    _durumBtn(k, 'OFF', Colors.redAccent, setD, "İZİN"), _durumBtn(k, 'KAZANDIŞI', Colors.grey, setD, "KAZANDIŞI"), 
+                    if (isGunduzVardiyasi) _durumBtn(k, 'HAMAL', Colors.pinkAccent, setD, "KARINCA"), 
+                    if (isGunduzVardiyasi) _durumBtn(k, 'ENSECİ', Colors.lightBlueAccent, setD, "AĞUSTOS BÖCEĞİ")
                   ]),
                   
                   if (!pas) Padding(
@@ -3078,16 +3177,20 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     }
     String? pJson = prefs.getString('savedPersonel');
     if (pJson != null) {
-      List<dynamic> saved = json.decode(pJson);
-      setState(() {
-        tumPersonelHavuzu.clear();
-        tumPersonelHavuzu.addAll(List<String>.from(saved));
-        for (var k in tumPersonelHavuzu) {
-          if (!gunlukDurum.containsKey(k)) gunlukDurum[k] = {'A'};
-          if (!yetkiler.containsKey(k)) yetkiler[k] = {}; 
-        }
-      });
-      _gruplariGuncelle(arsiveKaydet: false);
+      try {
+        List<dynamic> saved = json.decode(pJson);
+        setState(() {
+          tumPersonelHavuzu.clear();
+          tumPersonelHavuzu.addAll(List<String>.from(saved));
+          for (var k in tumPersonelHavuzu) {
+            if (!gunlukDurum.containsKey(k)) gunlukDurum[k] = {'A'};
+            if (!yetkiler.containsKey(k)) yetkiler[k] = {}; 
+          }
+        });
+        _gruplariGuncelle(arsiveKaydet: false);
+      } catch (e) {
+        debugPrint("Personel Prefs parse hatasi: $e");
+      }
     }
   }
 
@@ -3102,23 +3205,27 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     // Özel etiketleri yükle
     String? tagsJson = prefs.getString('customNotamTags');
     if (tagsJson != null) {
-      Map<String, dynamic> decoded = jsonDecode(tagsJson);
-      setState(() {
-        _customNotamTags = decoded.map((k, v) => MapEntry(k, v.toString()));
-      });
+      try {
+        Map<String, dynamic> decoded = jsonDecode(tagsJson);
+        setState(() {
+          _customNotamTags = decoded.map((k, v) => MapEntry(k, v.toString()));
+        });
+      } catch (e) { debugPrint("Notam Tags parse: $e"); }
     }
     // Özel rozetleri yükle (built-in olmayanlar)
     String? customTagsJson = prefs.getString('customAllTags');
     if (customTagsJson != null) {
-      Map<String, dynamic> decoded = jsonDecode(customTagsJson);
-      setState(() {
-        for (var entry in decoded.entries) {
-          if (!_builtInTagNames.contains(entry.key)) {
-            List<dynamic> val = entry.value;
-            _allTags[entry.key] = [Color(val[0]), val[1]];
+      try {
+        Map<String, dynamic> decoded = jsonDecode(customTagsJson);
+        setState(() {
+          for (var entry in decoded.entries) {
+            if (!_builtInTagNames.contains(entry.key)) {
+              List<dynamic> val = entry.value;
+              _allTags[entry.key] = [Color(val[0]), val[1]];
+            }
           }
-        }
-      });
+        });
+      } catch (e) { debugPrint("Custom All Tags parse: $e"); }
     }
   }
 
@@ -3683,7 +3790,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
         ),
         child: Text(txt, style: TextStyle(
           color: s ? Colors.black : c, 
-          fontSize: 8, 
+          fontSize: txt == "AĞUSTOS BÖCEĞİ" ? 6.5 : 8, 
           fontWeight: FontWeight.bold
         ))
       )
