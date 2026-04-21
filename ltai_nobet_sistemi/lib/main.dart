@@ -2266,8 +2266,8 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
 
     return DataTable(
         headingRowHeight: 40.0, 
-        dataRowMinHeight: rowH, dataRowMaxHeight: rowH,
-        headingRowColor: WidgetStateProperty.all(Colors.blueAccent.withOpacity(0.15)),
+        dataRowHeight: rowH,
+        headingRowColor: MaterialStateProperty.all(Colors.blueAccent.withOpacity(0.15)),
         headingTextStyle: TextStyle(fontWeight: FontWeight.bold, color: Colors.lightBlueAccent, fontSize: fontS),
         dataTextStyle: TextStyle(color: Colors.white, fontSize: fontS),
         columnSpacing: 25,
@@ -2371,7 +2371,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
               children: [ Padding(padding: const EdgeInsets.all(12.0), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   const SizedBox(height: 8),
                   SingleChildScrollView(scrollDirection: Axis.horizontal, child: DataTable(
-                    columnSpacing: 15, headingRowHeight: 36, dataRowMinHeight: 56, dataRowMaxHeight: 56, border: TableBorder.all(color: Colors.white12),
+                    columnSpacing: 15, headingRowHeight: 36, dataRowHeight: 56, border: TableBorder.all(color: Colors.white12),
                     columns: [ 
                       const DataColumn(label: SizedBox(width: 40, child: Center(child: Text("")))),
                       DataColumn(label: Text(arsiv.tarihMetni, style: const TextStyle(color: Colors.blueAccent, fontSize: 11, fontWeight: FontWeight.bold))), 
@@ -2410,7 +2410,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
         });
       } else {
         contentWidget = gosterilecek.isEmpty ? const Center(child: Text("Kayıt yok.", style: TextStyle(color: Colors.white54))) : SingleChildScrollView(child: DataTable(
-            columnSpacing: 10, headingRowHeight: 40, dataRowMinHeight: 45, dataRowMaxHeight: 45, border: TableBorder.all(color: Colors.white12),
+            columnSpacing: 10, headingRowHeight: 40, dataRowHeight: 45, border: TableBorder.all(color: Colors.white12),
             columns: [ 
               const DataColumn(label: SizedBox(width: 60, child: Text(""))), 
               const DataColumn(label: Text("DEL", style: TextStyle(fontSize: 10))), 
@@ -2717,7 +2717,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       mainAxisSize: MainAxisSize.min, 
       children: [
       Expanded(child: SingleChildScrollView(scrollDirection: Axis.vertical, child: SingleChildScrollView(scrollDirection: Axis.horizontal, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        DataTable(columnSpacing: 15, dataRowMinHeight: 65, dataRowMaxHeight: 65, headingRowHeight: 36, border: TableBorder.all(color: borderColor, width: 1), headingRowColor: WidgetStateProperty.all(Colors.black),
+        DataTable(columnSpacing: 15, dataRowHeight: 65, headingRowHeight: 36, border: TableBorder.all(color: borderColor, width: 1), headingRowColor: MaterialStateProperty.all(Colors.black),
           columns: [ 
             const DataColumn(label: SizedBox(width: 40, child: Center(child: Text("")))),
             DataColumn(label: Text(_aktifTarihStr, style: TextStyle(color: themeColor, fontWeight: FontWeight.bold, fontSize: 12))), 
