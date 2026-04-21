@@ -155,9 +155,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
   Set<String> _ilkSecilenlerGece = {};
   Set<String> get ilkSecilenler => isGunduzVardiyasi ? _ilkSecilenlerGunduz : _ilkSecilenlerGece;
 
-  Set<String> _ortaSecilenlerGunduz = {};
-  Set<String> _ortaSecilenlerGece = {};
-  Set<String> get ortaSecilenler => isGunduzVardiyasi ? _ortaSecilenlerGunduz : _ortaSecilenlerGece;
 
   Set<String> _sonSecilenlerGunduz = {};
   Set<String> _sonSecilenlerGece = {};
@@ -755,16 +752,13 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     
     Set<String> aktifIlkSecilenler = this.ilkSecilenler.where((k) => aktifPersonel.contains(k)).toSet();
     Set<String> aktifSonSecilenler = this.sonSecilenler.where((k) => aktifPersonel.contains(k)).toSet();
-    Set<String> aktifOrtaSecilenler = this.ortaSecilenler.where((k) => aktifPersonel.contains(k)).toSet();
 
     Map<String, int> kisiNumara = {};
     Set<int> kullanilanlar = {};
     
     // Uygunluk kontrolü (BK burada yok — BK mikro seçim değil, Phase 2'de yönetilir)
     bool _numaraUygun(String k, int num) {
-      List<int> slots = numaraSlotlari[num] ?? [];
-      if (aktifOrtaSecilenler.contains(k) && (slots.contains(0) || slots.contains(slotCount - 1))) return false;
-      return true;
+      return true; // ORTA kısıtı kaldırıldı — sadece İLK/SON yönlendirme yapar
     }
     
     // Numaraları tur sayısına göre sırala (çoktan aza)
@@ -917,8 +911,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     
     List<String> ilkler = kalanKisiler.where((k) => aktifIlkSecilenler.contains(k)).toList();
     List<String> sonlar = kalanKisiler.where((k) => aktifSonSecilenler.contains(k)).toList();
-    List<String> ortalar = kalanKisiler.where((k) => aktifOrtaSecilenler.contains(k) && !aktifIlkSecilenler.contains(k) && !aktifSonSecilenler.contains(k)).toList();
-    List<String> duznormal = kalanKisiler.where((k) => !aktifIlkSecilenler.contains(k) && !aktifSonSecilenler.contains(k) && !aktifOrtaSecilenler.contains(k)).toList();
+    List<String> duznormal = kalanKisiler.where((k) => !aktifIlkSecilenler.contains(k) && !aktifSonSecilenler.contains(k)).toList();
     
     // Gündüz Arşivi - Ters Dağıtım Döngüsü (Negative Feedback Loop):
     // İnsanlar sürekli aynı turlarda çalışmasın diye, tarihsel olarak yüksek indeksli 
@@ -932,7 +925,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     });
     
     int ny = duznormal.length ~/ 2;
-    List<String> eslemeListesi = [...ilkler, ...duznormal.sublist(0, ny), ...ortalar, ...duznormal.sublist(ny), ...sonlar];
+    List<String> eslemeListesi = [...ilkler, ...duznormal.sublist(0, ny), ...duznormal.sublist(ny), ...sonlar];
     
     // Kalan numaraları ortalama slot pozisyonuna göre sırala (erken → geç)
     List<int> kalanNumaralar = tumNumaralar.where((n) => !kullanilanlar.contains(n)).toList();
@@ -1508,18 +1501,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
           
           int score = 0;
           String core = pos.split('_')[0].split('/')[0];
-          
-          // Yetki kontrolü
-          var kYetki = yetkiler[k] ?? <String>{};
-          bool yetkili = kYetki.isEmpty || 
-                         kYetki.contains(pos) || 
-                         kYetki.contains(core);
-          if (!yetkili) score -= 100000;
-          
-          if (kYetki.isNotEmpty && (kYetki.contains(pos) || kYetki.contains(core))) {
-            score += 50000;
-          }
-          
+
           // Pozisyon çeşitliliği: daha önce bu pozisyonda oturmamış tercih et
           if (bugunkuPozisyonlar[k]!.contains(pos)) score -= 5000;
           bool ayniCoreVar = bugunkuPozisyonlar[k]!.any(
@@ -1820,7 +1802,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
         'IS_HAMAL': isHamal, 'IS_ENSECI': isEnseci,
         'H_SAYI': ts > majT ? (ts - majT) : 0, 'E_SAYI': ts < majT && ts > 0 ? (majT - ts) : 0,
         'ILK_S': ilkSecilenler.contains(k),
-        'ORTA_S': ortaSecilenler.contains(k),
+        'ORTA_S': false,
         'SON_S': sonSecilenler.contains(k),
         'BK_S': aktifBK.contains(k),
         '1203_S': gece1203Secilenler.contains(k),
@@ -3146,7 +3128,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                           spacing: 4, runSpacing: 2,
                           children: isGunduzVardiyasi ? [
                             _ozelSecimBtn(k, 'İLK', Colors.purpleAccent, setD),
-                            _ozelSecimBtn(k, 'ORTA', Colors.blue, setD),
                             _ozelSecimBtn(k, 'SON', Colors.tealAccent, setD),
                             _ozelSecimBtn(k, 'BİZİMLE KAL', Colors.amberAccent, setD),
                             _ozelSecimBtn(k, 'SUP ONLY', Colors.red.shade900, setD),
@@ -3234,7 +3215,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
           for (var k in tumPersonelHavuzu) {
             if (!_gunlukDurumGunduz.containsKey(k)) _gunlukDurumGunduz[k] = {'A'};
             if (!_gunlukDurumGece.containsKey(k)) _gunlukDurumGece[k] = {'A'};
-            if (!yetkiler.containsKey(k)) yetkiler[k] = {}; 
           }
         });
         _gruplariGuncelle(arsiveKaydet: false);
@@ -3711,7 +3691,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
   Widget _ozelSecimBtn(String k, String type, Color c, Function setD) {
     bool isSelected = false;
     if (type == 'İLK') isSelected = ilkSecilenler.contains(k);
-    if (type == 'ORTA') isSelected = ortaSecilenler.contains(k);
     if (type == 'SON') isSelected = sonSecilenler.contains(k);
     if (type == 'BİZİMLE KAL') isSelected = bizimleKalSecilenler.contains(k);
     if (type == '00⁰⁰-03⁰⁰') isSelected = gece1203Secilenler.contains(k);
@@ -3739,24 +3718,14 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
             ilkSecilenler.remove(k);
           } else {
             ilkSecilenler.add(k);
-            ortaSecilenler.remove(k);
             sonSecilenler.remove(k); 
-          }
-        } else if (type == 'ORTA') {
-          if (isSelected) {
-            ortaSecilenler.remove(k);
-          } else {
-            ortaSecilenler.add(k);
-            ilkSecilenler.remove(k);
-            sonSecilenler.remove(k);
           }
         } else if (type == 'SON') {
           if (isSelected) {
             sonSecilenler.remove(k);
           } else {
             sonSecilenler.add(k);
-            ilkSecilenler.remove(k); 
-            ortaSecilenler.remove(k);
+            ilkSecilenler.remove(k);
             bizimleKalSecilenler.remove(k); 
           }
         } else if (type == 'BİZİMLE KAL') {
@@ -3817,7 +3786,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
             gunlukDurum[k] = {d};
           }
         } else {
-          // Diğer bayraklar: OFF/KAZANDIŞI burada yoktu, normal toggle
           gunlukDurum[k]!.remove('OFF');
           gunlukDurum[k]!.remove('KAZANDIŞI');
           if (!tamOtomatikDagitim && ['A','B','C','D','E'].contains(d)) {
@@ -3921,8 +3889,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                           yetkiler.remove(k);
                           _ilkSecilenlerGunduz.remove(k);
                           _ilkSecilenlerGece.remove(k);
-                          _ortaSecilenlerGunduz.remove(k);
-                          _ortaSecilenlerGece.remove(k);
                           _sonSecilenlerGunduz.remove(k);
                           _sonSecilenlerGece.remove(k);
                           _bizimleKalSecilenlerGunduz.remove(k);
@@ -3962,8 +3928,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                             
                             if(_ilkSecilenlerGunduz.contains(old)) { _ilkSecilenlerGunduz.remove(old); _ilkSecilenlerGunduz.add(n); }
                             if(_ilkSecilenlerGece.contains(old)) { _ilkSecilenlerGece.remove(old); _ilkSecilenlerGece.add(n); }
-                            if(_ortaSecilenlerGunduz.contains(old)) { _ortaSecilenlerGunduz.remove(old); _ortaSecilenlerGunduz.add(n); }
-                            if(_ortaSecilenlerGece.contains(old)) { _ortaSecilenlerGece.remove(old); _ortaSecilenlerGece.add(n); }
                             if(_sonSecilenlerGunduz.contains(old)) { _sonSecilenlerGunduz.remove(old); _sonSecilenlerGunduz.add(n); }
                             if(_sonSecilenlerGece.contains(old)) { _sonSecilenlerGece.remove(old); _sonSecilenlerGece.add(n); }
                             if(_bizimleKalSecilenlerGunduz.contains(old)) { _bizimleKalSecilenlerGunduz.remove(old); _bizimleKalSecilenlerGunduz.add(n); }
