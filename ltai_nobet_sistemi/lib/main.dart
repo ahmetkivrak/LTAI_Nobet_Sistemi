@@ -520,6 +520,9 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     for (var k in tumPersonelHavuzu) {
       turSayisi[k] = 0;
       supSayisi[k] = 0; twrSayisi[k] = 0; gndSayisi[k] = 0; delSayisi[k] = 0;
+      // Önceki turdan kalan oto-etiketleri temizle (her üretimde taze hesaplansın)
+      gunlukDurum[k]?.remove('HAMAL_OTO');
+      gunlukDurum[k]?.remove('ENSECİ_OTO');
     }
   }
 
@@ -694,10 +697,61 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     // Öncelik: KARINCA → çok tur, AĞUSTOS BÖCEĞİ → az tur
     // Sonra: İLK → erken slot, SON → geç slot
     // ═══════════════════════════════════════════════════
-    
-    // Kişileri grupla
-    List<String> karincalar = aktifPersonel.where((k) => gunlukDurum[k]!.contains('HAMAL')).toList();
-    List<String> agustoslar = aktifPersonel.where((k) => gunlukDurum[k]!.contains('ENSECİ')).toList();
+
+    // ─── OTOMATİK BÖCEK/KARINCA HESAPLA ───
+    // Kaç böcek/karinca gerekli ama eksik seçilmiş ise otomatik tamamla
+    {
+      int totalSLocal = 0;
+      for (int i = 0; i < saatler.length; i++) {
+        totalSLocal += getSektorlerByLevel(tamOtomatikDagitim ? _getIdealLevel(anlikTrafik[i % anlikTrafik.length].genelToplam) : gunlukSeviye).length;
+      }
+      int bCount = aktifPersonel.length;
+      if (bCount > 0) {
+        int baseT = totalSLocal ~/ bCount;
+        int remT  = totalSLocal % bCount;
+        int majTLocal = remT <= bCount / 2 ? baseT : baseT + 1;
+        int hGerekLocal = remT <= bCount / 2 ? remT : 0;
+        int eGerekLocal = remT > bCount / 2 ? (bCount - remT) : 0;
+
+        int manuelH = aktifPersonel.where((k) => gunlukDurum[k]!.contains('HAMAL')).length;
+        int manuelE = aktifPersonel.where((k) => gunlukDurum[k]!.contains('ENSECİ')).toList().length;
+
+        // Eksik KARINCA varsa en yorgun kişileri otomatik karınca yap
+        int bockEksiH = hGerekLocal - manuelH;
+        if (bockEksiH > 0) {
+          List<String> adayH = aktifPersonel.where((k) =>
+            !gunlukDurum[k]!.contains('HAMAL') &&
+            !gunlukDurum[k]!.contains('ENSECİ') &&
+            !gunlukDurum[k]!.contains('OFF') &&
+            !gunlukDurum[k]!.contains('KAZANDIŞI')
+          ).toList();
+          adayH.sort((a, b) => _getArsivYorgunlukOrtalamasi(b).compareTo(_getArsivYorgunlukOrtalamasi(a)));
+          for (int i = 0; i < bockEksiH && i < adayH.length; i++) {
+            gunlukDurum[adayH[i]]!.add('HAMAL_OTO');
+          }
+        }
+
+        // Eksik BÖCEK varsa en az yorgun kişileri otomatik böcek yap
+        int bockEksiE = eGerekLocal - manuelE;
+        if (bockEksiE > 0) {
+          List<String> adayE = aktifPersonel.where((k) =>
+            !gunlukDurum[k]!.contains('ENSECİ') &&
+            !gunlukDurum[k]!.contains('HAMAL') &&
+            !gunlukDurum[k]!.contains('HAMAL_OTO') &&
+            !gunlukDurum[k]!.contains('OFF') &&
+            !gunlukDurum[k]!.contains('KAZANDIŞI')
+          ).toList();
+          adayE.sort((a, b) => _getArsivYorgunlukOrtalamasi(a).compareTo(_getArsivYorgunlukOrtalamasi(b)));
+          for (int i = 0; i < bockEksiE && i < adayE.length; i++) {
+            gunlukDurum[adayE[i]]!.add('ENSECİ_OTO');
+          }
+        }
+      }
+    }
+
+    // Kişileri grupla (manuel + otomatik etiketler birlikte)
+    List<String> karincalar = aktifPersonel.where((k) => gunlukDurum[k]!.contains('HAMAL') || gunlukDurum[k]!.contains('HAMAL_OTO')).toList();
+    List<String> agustoslar = aktifPersonel.where((k) => gunlukDurum[k]!.contains('ENSECİ') || gunlukDurum[k]!.contains('ENSECİ_OTO')).toList();
     
     Set<String> aktifIlkSecilenler = this.ilkSecilenler.where((k) => aktifPersonel.contains(k)).toSet();
     Set<String> aktifSonSecilenler = this.sonSecilenler.where((k) => aktifPersonel.contains(k)).toSet();
@@ -886,6 +940,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     
     for (var k in eslemeListesi) {
       int? assignedNum;
+      // Önce kısıtlamaya uyan numara bulmaya çalış
       for (int i = 0; i < kalanNumaralar.length; i++) {
         int num = kalanNumaralar[i];
         if (_numaraUygun(k, num)) {
@@ -894,13 +949,23 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
           break;
         }
       }
-      // Geçerli bir numara bulunamadıysa (kısıtlamalardan dolayı), düşmemesi için
-      // kalan herhangi bir numarayı zorla ata.
+      // Kısıtlamaya uyan numara bulunamadıysa ORTA kısıtını göz ardı ederek zorla ata
+      // (Kişiyi tamamen bord dışında bırakmak yerine)
       if (assignedNum == null && kalanNumaralar.isNotEmpty) {
         assignedNum = kalanNumaralar.first;
         kalanNumaralar.removeAt(0);
       }
-      
+      // Tüm numaralar dolmuşsa bile kisiNumara'ya ekleme — fallback olarak tüm listeden al
+      if (assignedNum == null) {
+        // Hiç numara kalmadı ama kişiyi bırakma: en az kullananı bul
+        int? minNum;
+        int minCount = 999999;
+        for (int n = 0; n < aCount; n++) {
+          int cnt = kisiNumara.values.where((v) => v == n).length;
+          if (cnt < minCount) { minCount = cnt; minNum = n; }
+        }
+        assignedNum = minNum;
+      }
       if (assignedNum != null) {
         kisiNumara[k] = assignedNum;
         kullanilanlar.add(assignedNum);
@@ -1747,8 +1812,8 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     bool herhangiManuelEnseci  = _herhangiManuelEnseci;
     for(var k in tumPersonelHavuzu) {
       int ts = turSayisi[k] ?? 0;
-      bool isHamal  = (gunlukDurum[k]?.contains('HAMAL') ?? false) || (ts > majT);
-      bool isEnseci = (gunlukDurum[k]?.contains('ENSECİ') ?? false) || (ts < majT && ts > 0);
+      bool isHamal  = (gunlukDurum[k]?.contains('HAMAL') ?? false) || (gunlukDurum[k]?.contains('HAMAL_OTO') ?? false) || (ts > majT);
+      bool isEnseci = (gunlukDurum[k]?.contains('ENSECİ') ?? false) || (gunlukDurum[k]?.contains('ENSECİ_OTO') ?? false) || (ts < majT && ts > 0);
       bugunIstat[k] = { 
         'DEL': delSayisi[k] ?? 0, 'TWR': twrSayisi[k] ?? 0, 'GND': gndSayisi[k] ?? 0, 'SUP': supSayisi[k] ?? 0, 
         'TUR': ts, 
