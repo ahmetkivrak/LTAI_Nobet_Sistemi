@@ -2,6 +2,13 @@
 
 ## Version History & Changelog
 
+### v2.3.5 Kadro Paneli Düzeltmeleri (April 22, 2026)
+*   **Karınca/Böcek Göstergesi**: Daha sade format — `"⚖️ Çoğunluk: 2 Tur | 0K 5A (Seçili: 2A → +3A OTO)"`. Manuel seçim eksik kaldığında otomatik tamamlama sayısı `(+XA OTO)` olarak gösterilir.
+*   **SUP ↔ SUP ONLY Karşılıklı Dışlama**: SUP yetkisi seçilirken SUP ONLY otomatik kaldırılır ve tersi. TWR/GND/DEL yetkileri bu kuraldan bağımsız kalır.
+*   **Mod Geçişi Sıfırlama**: Gündüz→Gece veya Gece→Gündüz geçişinde hedef modun tüm seçimleri (İLK/SON/BK/SUP ONLY/KARINCA/BÖCEK + TWR/GND/DEL/SUP yetkileri + gece slot tercihleri) sıfırlanır. Her gün farklı nöbet — seçimler taşınmamalı.
+
+---
+
 ### v2.3 Code Review & Cleanup (April 19, 2026)
 *   **Bug Fix — Archive Statistics Aggregator**: Fixed a critical bug where auto-noted names like `"BE (14:00)"` were not recognized in the statistics window. Applied `_yalnIsim()` to strip auto-notes before matching, ensuring partial-shift workers are counted correctly in DEL/TWR/GND/SUP tallies.
 *   **Dead Code Removal**: Removed unreachable `isAraSlotu` flag and `if (isAraSlotu)` block from Phase 2 (daytime engine only — night engine has its own `isAra` logic). Removed unused `isYarin`, `yarinT24`, and `yarinStr` variables that were always false/unused in the daytime-only context.

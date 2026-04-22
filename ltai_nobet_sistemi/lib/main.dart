@@ -2984,7 +2984,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                              side: BorderSide(color: (isGunduzVardiyasi && saatSenaryosu == 1) ? Colors.orangeAccent : Colors.white24, width: (isGunduzVardiyasi && saatSenaryosu == 1) ? 1.5 : 1),
                              padding: EdgeInsets.zero, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6))
                           ),
-                          onPressed: () => setD(() { isGunduzVardiyasi = true; saatSenaryosu = 1; _gruplariGuncelle(arsiveKaydet: false); }),
+                          onPressed: () => setD(() { bool modDegisti = !isGunduzVardiyasi; isGunduzVardiyasi = true; saatSenaryosu = 1; if (modDegisti) _modGecisiTemizle(true); _gruplariGuncelle(arsiveKaydet: false); }),
                           child: Text("☀️ $p1G", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 1))
                         )
                       ),
@@ -2998,7 +2998,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                              side: BorderSide(color: (isGunduzVardiyasi && saatSenaryosu == 2) ? Colors.orangeAccent : Colors.white24, width: (isGunduzVardiyasi && saatSenaryosu == 2) ? 1.5 : 1),
                              padding: EdgeInsets.zero, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6))
                           ),
-                          onPressed: () => setD(() { isGunduzVardiyasi = true; saatSenaryosu = 2; _gruplariGuncelle(arsiveKaydet: false); }),
+                          onPressed: () => setD(() { bool modDegisti = !isGunduzVardiyasi; isGunduzVardiyasi = true; saatSenaryosu = 2; if (modDegisti) _modGecisiTemizle(true); _gruplariGuncelle(arsiveKaydet: false); }),
                           child: Text("☀️ $p2G", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 1))
                         )
                       ),
@@ -3020,7 +3020,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                              side: BorderSide(color: (!isGunduzVardiyasi && saatSenaryosu == 1) ? Colors.indigoAccent : Colors.white24, width: (!isGunduzVardiyasi && saatSenaryosu == 1) ? 1.5 : 1),
                              padding: EdgeInsets.zero, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6))
                           ),
-                          onPressed: () => setD(() { isGunduzVardiyasi = false; saatSenaryosu = 1; _gruplariGuncelle(arsiveKaydet: false); }),
+                          onPressed: () => setD(() { bool modDegisti = isGunduzVardiyasi; isGunduzVardiyasi = false; saatSenaryosu = 1; if (modDegisti) _modGecisiTemizle(false); _gruplariGuncelle(arsiveKaydet: false); }),
                           child: Text("🌙 $n1Txt", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 1))
                         )
                       ),
@@ -3034,7 +3034,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                              side: BorderSide(color: (!isGunduzVardiyasi && saatSenaryosu == 2) ? Colors.indigoAccent : Colors.white24, width: (!isGunduzVardiyasi && saatSenaryosu == 2) ? 1.5 : 1),
                              padding: EdgeInsets.zero, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6))
                           ),
-                          onPressed: () => setD(() { isGunduzVardiyasi = false; saatSenaryosu = 2; _gruplariGuncelle(arsiveKaydet: false); }),
+                          onPressed: () => setD(() { bool modDegisti = isGunduzVardiyasi; isGunduzVardiyasi = false; saatSenaryosu = 2; if (modDegisti) _modGecisiTemizle(false); _gruplariGuncelle(arsiveKaydet: false); }),
                           child: Text("🌙 $n2Txt", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 1))
                         )
                       ),
@@ -3044,7 +3044,27 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
               ],
             );
           }),
-          Padding(padding: const EdgeInsets.only(top: 8), child: Text(isGunduzVardiyasi ? "⚖️ Çoğunluk: $majT Tur | $hGerek Karınca - $eGerek Ağustos Böceği Gerekli${manuelHamal > 0 || manuelEnseci > 0 ? ' (Seçili: ${manuelHamal}K ${manuelEnseci}A)' : ''}" : "⚖️ Ortalama: $majT Tur Tahmini", style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold))),
+          Builder(builder: (context) {
+            String gMetin = "⚖️ Çoğunluk: $majT Tur | ${hGerek}K ${eGerek}A";
+            if (manuelHamal > 0 || manuelEnseci > 0) {
+              gMetin += " (Seçili: ${manuelHamal}K ${manuelEnseci}A";
+              int ekH = hGerek - manuelHamal;
+              int ekE = eGerek - manuelEnseci;
+              if (ekH > 0 || ekE > 0) {
+                gMetin += " →";
+                if (ekH > 0) gMetin += " +${ekH}K";
+                if (ekE > 0) gMetin += " +${ekE}A";
+                gMetin += " OTO";
+              }
+              gMetin += ")";
+            } else if (hGerek > 0 || eGerek > 0) {
+              gMetin += " (OTO)";
+            }
+            return Padding(padding: const EdgeInsets.only(top: 8), child: Text(
+              isGunduzVardiyasi ? gMetin : "⚖️ Ortalama: $majT Tur Tahmini",
+              style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold)
+            ));
+          }),
           
           const SizedBox(height: 10),
           SingleChildScrollView(
@@ -3711,8 +3731,12 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
         }
 
         if (type == 'SUP ONLY') {
-           if (isSelected) supOnlySecilenler.remove(k);
-           else supOnlySecilenler.add(k);
+           if (isSelected) {
+             supOnlySecilenler.remove(k);
+           } else {
+             supOnlySecilenler.add(k);
+             yetkiler[k]?.remove('SUP'); // SUP ONLY seçilince SUP yetkisini kaldır
+           }
         } else if (type == 'İLK') {
           if (isSelected) {
             ilkSecilenler.remove(k);
@@ -3775,6 +3799,34 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     );
   }
 
+  /// Gündüz ↔ Gece mod geçişinde hedef modun tüm seçimlerini sıfırlar.
+  /// Her gün farklı nöbet — seçimler taşınmamalı.
+  void _modGecisiTemizle(bool hedefGunduz) {
+    if (hedefGunduz) {
+      _ilkSecilenlerGunduz.clear();
+      _sonSecilenlerGunduz.clear();
+      _bizimleKalSecilenlerGunduz.clear();
+      _supOnlySecilenlerGunduz.clear();
+      for (var k in tumPersonelHavuzu) {
+        _gunlukDurumGunduz[k]?.removeAll(['HAMAL', 'ENSECİ']);
+      }
+    } else {
+      _ilkSecilenlerGece.clear();
+      _sonSecilenlerGece.clear();
+      _bizimleKalSecilenlerGece.clear();
+      _supOnlySecilenlerGece.clear();
+      gece1203Secilenler.clear();
+      geceAraSecilenler.clear();
+      gece0508Secilenler.clear();
+      gece0809Secilenler.clear();
+      geceOffSecilenler.clear();
+    }
+    // Yetkiler (TWR/GND/DEL/SUP) de sıfırlanır — her gün farklı
+    for (var k in tumPersonelHavuzu) {
+      yetkiler[k]?.clear();
+    }
+  }
+
   Widget _durumBtn(String k, String d, Color c, Function setD, String txt) {
     bool s = gunlukDurum[k]!.contains(d);
     return InkWell(
@@ -3821,7 +3873,10 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     return InkWell(
       onTap: () => setD(() {
         if (s) yetkiler[k]!.remove(y);
-        else yetkiler[k]!.add(y);
+        else {
+          yetkiler[k]!.add(y);
+          if (y == 'SUP') supOnlySecilenler.remove(k); // SUP seçilince SUP ONLY'yi kaldır
+        }
         _gruplariGuncelle(arsiveKaydet: false);
       }),
       child: Container(
