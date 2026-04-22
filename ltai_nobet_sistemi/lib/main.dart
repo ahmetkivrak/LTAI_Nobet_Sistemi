@@ -3045,25 +3045,19 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
             );
           }),
           Builder(builder: (context) {
-            String gMetin = "⚖️ Çoğunluk: $majT Tur | ${hGerek}K ${eGerek}A";
+            if (!isGunduzVardiyasi) return const SizedBox.shrink();
+            
+            String gMetin = "⚖️ Çoğunluk: $majT Tur | $hGerek Karınca - $eGerek Ağustos Böceği Gerekli";
             if (manuelHamal > 0 || manuelEnseci > 0) {
-              gMetin += " (Seçili: ${manuelHamal}K ${manuelEnseci}A";
-              int ekH = hGerek - manuelHamal;
-              int ekE = eGerek - manuelEnseci;
-              if (ekH > 0 || ekE > 0) {
-                gMetin += " →";
-                if (ekH > 0) gMetin += " +${ekH}K";
-                if (ekE > 0) gMetin += " +${ekE}A";
-                gMetin += " OTO";
-              }
-              gMetin += ")";
-            } else if (hGerek > 0 || eGerek > 0) {
-              gMetin += " (OTO)";
+              gMetin += " (Seçili: ${manuelHamal}K ${manuelEnseci}A)";
             }
-            return Padding(padding: const EdgeInsets.only(top: 8), child: Text(
-              isGunduzVardiyasi ? gMetin : "⚖️ Ortalama: $majT Tur Tahmini",
-              style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold)
-            ));
+            return Padding(
+              padding: const EdgeInsets.only(top: 8), 
+              child: Text(
+                gMetin,
+                style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold)
+              )
+            );
           }),
           
           const SizedBox(height: 10),
