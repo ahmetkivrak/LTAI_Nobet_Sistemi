@@ -2558,6 +2558,36 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       ),
     );
   }
+  /// İki kişiyi tüm bordda takas eder — motor yeniden çalışmaz.
+  void _bordTakasYap(String kisiA, String kisiB) {
+    String coreA = _yalnIsim(kisiA);
+    String coreB = _yalnIsim(kisiB);
+    if (coreA == coreB) return;
+
+    String _mbKey = "$_aktifTarihStr (${isGunduzVardiyasi ? 'Gündüz' : 'Gece'})";
+    var sonBord = tamArsiv.lastWhere((b) => b.tarihMetni == _mbKey, orElse: () => tamArsiv.last);
+
+    setState(() {
+      for (int r = 0; r < sonBord.satirlar.length; r++) {
+        for (int c = 0; c < sonBord.satirlar[r].length; c++) {
+          String cell = sonBord.satirlar[r][c];
+          String core = _yalnIsim(cell);
+          if (core == coreA) {
+            sonBord.satirlar[r][c] = cell.replaceFirst(coreA, coreB);
+          } else if (core == coreB) {
+            sonBord.satirlar[r][c] = cell.replaceFirst(coreB, coreA);
+          }
+        }
+      }
+      // İstatistik swap
+      var stA = sonBord.istatistik[coreA];
+      var stB = sonBord.istatistik[coreB];
+      if (stA != null && stB != null) {
+        sonBord.istatistik[coreA] = stB;
+        sonBord.istatistik[coreB] = stA;
+      }
+    });
+  }
 
   void _manuelAtamaPenceresiAc(int hIdx, String pos, String currentPerson) {
     String core = pos.split('_')[0].split('/')[0];
@@ -2588,7 +2618,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1E1E1E),
-        title: Text("${saatler[hIdx]} | $pos 📌", style: const TextStyle(color: Colors.orangeAccent, fontSize: 16, fontWeight: FontWeight.bold)),
+        title: Text(currentPerson != "-" ? "🔄 ${_yalnIsim(currentPerson)} ↔ ?" : "${saatler[hIdx]} | $pos 📌", style: TextStyle(color: currentPerson != "-" ? Colors.cyanAccent : Colors.orangeAccent, fontSize: 16, fontWeight: FontWeight.bold)),
         content: SizedBox(
           width: 350,
           child: Column(
@@ -2628,42 +2658,51 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
 
                   bool isOff = gunlukDurum[kisi]!.contains('OFF') || gunlukDurum[kisi]!.contains('KAZANDIŞI');
                   if (isOff) return const SizedBox.shrink();
+                  if (currentPerson != "-" && kisi == _yalnIsim(currentPerson)) return const SizedBox.shrink(); // Kendisiyle takas anlamsız
 
                   bool yetkiVar = _vizeKontrol(kisi, pos, core);
                   bool prevWorked = prevRow.contains(kisi);
                   bool nextWorked = nextRow.contains(kisi);
                   bool isBizimleKal = hIdx == saatler.length - 1 && bizimleKalSecilenler.contains(kisi);
                   
-                  // Yeşil = tamamen uygun, Kırmızı = en az bir kural çiğneniyor ama SEÇİLEBİLİR
                   bool uygun = yetkiVar && !prevWorked && !nextWorked && !isBizimleKal;
-                  bool vizeSiz = !yetkiVar; // Tek engel: vize yoksa uyarı ver ama yine seçilebilir
                   
                   return ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: uygun ? Colors.green.withOpacity(0.15) : Colors.redAccent.withOpacity(0.12),
-                      side: BorderSide(color: uygun ? Colors.green : Colors.redAccent.withOpacity(0.5)),
+                      backgroundColor: currentPerson != "-"
+                        ? Colors.cyanAccent.withOpacity(0.1)
+                        : (uygun ? Colors.green.withOpacity(0.15) : Colors.redAccent.withOpacity(0.12)),
+                      side: BorderSide(color: currentPerson != "-"
+                        ? Colors.cyanAccent.withOpacity(0.5)
+                        : (uygun ? Colors.green : Colors.redAccent.withOpacity(0.5))),
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)
                     ),
                     onPressed: () {
+                      if (currentPerson != "-") {
+                        // TAKAS MODU: İki kişiyi tüm bordda yer değiştir
+                        _bordTakasYap(currentPerson, kisi);
+                        Navigator.pop(context);
+                      } else {
+                        // PIN MODU: Boş hücreye atama (mevcut davranış)
                         if (!_isModaUygunSaat(saatCtrl.text)) {
                           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("⚠️ ${isGunduzVardiyasi ? 'Gündüz' : 'Gece'} vardiyasına uymayan mantıksız bir saat girdiniz!"), backgroundColor: Colors.redAccent));
                           return;
                         }
-                      // Her durumda pini kaydet (kısaltılmış süre notu)
-                      setState(() {
-                        if (!_kilitliSaatlerTarihli.containsKey(_aktifTarihVeMod)) _kilitliSaatlerTarihli[_aktifTarihVeMod] = {};
-                        if (!_kilitliSaatlerTarihli[_aktifTarihVeMod]!.containsKey(hIdx)) _kilitliSaatlerTarihli[_aktifTarihVeMod]![hIdx] = {};
-                        if (saatCtrl.text.trim().isNotEmpty) _kilitliSaatlerTarihli[_aktifTarihVeMod]![hIdx]![pos] = saatCtrl.text.trim();
-                        else _kilitliSaatlerTarihli[_aktifTarihVeMod]![hIdx]!.remove(pos);
-                        
-                        if (!_manuelAtananKisiler.containsKey(_aktifTarihVeMod)) _manuelAtananKisiler[_aktifTarihVeMod] = {};
-                        if (!_manuelAtananKisiler[_aktifTarihVeMod]!.containsKey(hIdx)) _manuelAtananKisiler[_aktifTarihVeMod]![hIdx] = {};
-                        _manuelAtananKisiler[_aktifTarihVeMod]![hIdx]![pos] = kisi;
-                      });
-                      _gruplariGuncelle(arsiveKaydet: false, pinleriTemizle: false);
-                      Navigator.pop(context);
+                        setState(() {
+                          if (!_kilitliSaatlerTarihli.containsKey(_aktifTarihVeMod)) _kilitliSaatlerTarihli[_aktifTarihVeMod] = {};
+                          if (!_kilitliSaatlerTarihli[_aktifTarihVeMod]!.containsKey(hIdx)) _kilitliSaatlerTarihli[_aktifTarihVeMod]![hIdx] = {};
+                          if (saatCtrl.text.trim().isNotEmpty) _kilitliSaatlerTarihli[_aktifTarihVeMod]![hIdx]![pos] = saatCtrl.text.trim();
+                          else _kilitliSaatlerTarihli[_aktifTarihVeMod]![hIdx]!.remove(pos);
+                          
+                          if (!_manuelAtananKisiler.containsKey(_aktifTarihVeMod)) _manuelAtananKisiler[_aktifTarihVeMod] = {};
+                          if (!_manuelAtananKisiler[_aktifTarihVeMod]!.containsKey(hIdx)) _manuelAtananKisiler[_aktifTarihVeMod]![hIdx] = {};
+                          _manuelAtananKisiler[_aktifTarihVeMod]![hIdx]![pos] = kisi;
+                        });
+                        _gruplariGuncelle(arsiveKaydet: false, pinleriTemizle: false);
+                        Navigator.pop(context);
+                      }
                     },
-                    child: Text(kisi, style: TextStyle(color: uygun ? Colors.white : Colors.white70, fontWeight: FontWeight.bold)),
+                    child: Text(kisi, style: TextStyle(color: currentPerson != "-" ? Colors.cyanAccent : (uygun ? Colors.white : Colors.white70), fontWeight: FontWeight.bold)),
                   );
                 }).toList()
               ),
