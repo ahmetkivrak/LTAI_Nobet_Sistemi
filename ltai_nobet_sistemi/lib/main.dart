@@ -3134,8 +3134,10 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                       children: [
                         Wrap(
                           spacing: 4, runSpacing: 2,
-                          children: getSektorlerByLevel(gunlukSeviye)
-                              .map((pos) => _yetkiBtn(k, pos, setD)).toList(),
+                          children: [
+                            ...getSektorlerByLevel(gunlukSeviye).map((pos) => _yetkiBtn(k, pos, setD)),
+                            _ozelSecimBtn(k, 'SUP ONLY', Colors.red.shade900, setD),
+                          ],
                         ),
                         const SizedBox(height: 6),
                         Wrap(
@@ -3144,14 +3146,12 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                             _ozelSecimBtn(k, 'İLK', Colors.purpleAccent, setD),
                             _ozelSecimBtn(k, 'SON', Colors.tealAccent, setD),
                             _ozelSecimBtn(k, 'BİZİMLE KAL', Colors.amberAccent, setD),
-                            _ozelSecimBtn(k, 'SUP ONLY', Colors.red.shade900, setD),
                           ] : [
                             _ozelSecimBtn(k, '00⁰⁰-03⁰⁰', Colors.deepPurpleAccent, setD),
                             _ozelSecimBtn(k, 'ARA', Colors.indigoAccent, setD),
                             _ozelSecimBtn(k, '05³⁰-08⁰⁰', Colors.teal, setD),
                             _ozelSecimBtn(k, '08⁰⁰-09⁰⁰', Colors.blueGrey, setD),
                             _ozelSecimBtn(k, 'OFF', Colors.redAccent, setD),
-                            _ozelSecimBtn(k, 'SUP ONLY', Colors.red.shade900, setD),
                           ],
                         )
                       ]
