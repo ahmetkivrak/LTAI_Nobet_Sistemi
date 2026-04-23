@@ -1229,12 +1229,12 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     }
 
     // Kalan gece personeli: önce akşam boşluklarını doldur, sonra gece boşluklarını
-    List<String> kalanlar = geceListe.where((k) => !kisiGeceSlot.containsKey(k)).toList();
+    List<String> geceKalanHavuz = geceListe.where((k) => !kisiGeceSlot.containsKey(k)).toList();
     // Yorgunluk sırasına göre sırala
-    kalanlar.sort((a, b) => _getArsivYorgunlukOrtalamasi(a).compareTo(_getArsivYorgunlukOrtalamasi(b)));
+    geceKalanHavuz.sort((a, b) => _getArsivYorgunlukOrtalamasi(a).compareTo(_getArsivYorgunlukOrtalamasi(b)));
 
     // Kalanlar için akşam ataması
-    for (var k in kalanlar) {
+    for (var k in geceKalanHavuz) {
       if (kisiAksamSlot.containsKey(k)) continue;
       for (int asi in aksamSiralanmis) {
         if (ataSlot(asi, k)) { kisiAksamSlot[k] = asi; break; }
@@ -1242,7 +1242,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     }
 
     // Kalanlar için gece ataması
-    for (var k in kalanlar) {
+    for (var k in geceKalanHavuz) {
       if (kisiGeceSlot.containsKey(k)) continue;
       for (int gsi in geceSirali) {
         if (ataSlot(gsi, k)) { kisiGeceSlot[k] = gsi; break; }
