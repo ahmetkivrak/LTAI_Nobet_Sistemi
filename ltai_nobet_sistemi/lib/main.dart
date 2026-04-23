@@ -3146,9 +3146,19 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
           Builder(builder: (context) {
             if (!isGunduzVardiyasi) return const SizedBox.shrink();
             
-            String gMetin = "⚖️ Çoğunluk: $majT Tur | $hGerek Karınca - $eGerek Ağustos Böceği Gerekli";
+            int gercekHamal = 0;
+            int gercekEnseci = 0;
+            String _mbKey = "$_aktifTarihStr (${isGunduzVardiyasi ? 'Gündüz' : 'Gece'})";
+            var sonBord = tamArsiv.lastWhere((b) => b.tarihMetni == _mbKey, orElse: () => tamArsiv.last);
+            
+            for (var k in tumPersonelHavuzu) {
+              if (sonBord.istatistik[k]?['IS_HAMAL'] == true) gercekHamal++;
+              if (sonBord.istatistik[k]?['IS_ENSECI'] == true) gercekEnseci++;
+            }
+            
+            String gMetin = "⚖️ Çoğunluk: $majT Tur | Tabloda: $gercekHamal Karınca - $gercekEnseci Ağustos Böceği";
             if (manuelHamal > 0 || manuelEnseci > 0) {
-              gMetin += " (Seçili: ${manuelHamal}K ${manuelEnseci}A)";
+              gMetin += " (Senin Seçtiğin: ${manuelHamal}K ${manuelEnseci}A)";
             }
             return Padding(
               padding: const EdgeInsets.only(top: 8), 
