@@ -2617,55 +2617,40 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     showDialog(
       context: context,
       builder: (context) {
-        int dialogMode = currentPerson != "-" ? 0 : 1; // 0: Takas, 1: Pin (No Recalc), 2: Motor (Recalc)
+        bool isTakasMode = currentPerson != "-";
         return StatefulBuilder(builder: (context, setDlg) => AlertDialog(
           backgroundColor: const Color(0xFF1E1E1E),
           title: Row(children: [
             if (currentPerson != "-") ...[
               GestureDetector(
-                onTap: () => setDlg(() => dialogMode = 0),
+                onTap: () => setDlg(() => isTakasMode = true),
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: dialogMode == 0 ? Colors.cyanAccent.withOpacity(0.15) : Colors.transparent,
+                    color: isTakasMode ? Colors.cyanAccent.withOpacity(0.15) : Colors.transparent,
                     borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: dialogMode == 0 ? Colors.cyanAccent : Colors.white24)
+                    border: Border.all(color: isTakasMode ? Colors.cyanAccent : Colors.white24)
                   ),
                   child: const Text("🔄", style: TextStyle(fontSize: 18))
                 )
               ),
               const SizedBox(width: 6),
-            ],
-            GestureDetector(
-              onTap: () => setDlg(() => dialogMode = 1),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: dialogMode == 1 ? Colors.redAccent.withOpacity(0.15) : Colors.transparent,
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: dialogMode == 1 ? Colors.redAccent : Colors.white24)
-                ),
-                child: const Text("📌", style: TextStyle(fontSize: 18))
-              )
-            ),
-            const SizedBox(width: 6),
-            GestureDetector(
-              onTap: () => setDlg(() => dialogMode = 2),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: dialogMode == 2 ? Colors.purpleAccent.withOpacity(0.15) : Colors.transparent,
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: dialogMode == 2 ? Colors.purpleAccent : Colors.white24)
-                ),
-                child: const Text("⚙️", style: TextStyle(fontSize: 18))
-              )
-            ),
-            const SizedBox(width: 8),
-            if (currentPerson != "-")
-              Text("${_yalnIsim(currentPerson)} ${dialogMode == 0 ? '↔' : '→'}", style: TextStyle(color: dialogMode == 0 ? Colors.cyanAccent : (dialogMode == 1 ? Colors.redAccent : Colors.purpleAccent), fontSize: 16, fontWeight: FontWeight.bold))
-            else
-              Text("${saatler[hIdx]} | $pos", style: TextStyle(color: dialogMode == 1 ? Colors.redAccent : Colors.purpleAccent, fontSize: 16, fontWeight: FontWeight.bold)),
+              GestureDetector(
+                onTap: () => setDlg(() => isTakasMode = false),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: !isTakasMode ? Colors.redAccent.withOpacity(0.15) : Colors.transparent,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: !isTakasMode ? Colors.redAccent : Colors.white24)
+                  ),
+                  child: const Text("📌", style: TextStyle(fontSize: 18))
+                )
+              ),
+              const SizedBox(width: 8),
+              Text("${_yalnIsim(currentPerson)} ${isTakasMode ? '↔' : '→'}", style: TextStyle(color: isTakasMode ? Colors.cyanAccent : Colors.redAccent, fontSize: 16, fontWeight: FontWeight.bold)),
+            ] else
+              Text("${saatler[hIdx]} | $pos 📌", style: const TextStyle(color: Colors.orangeAccent, fontSize: 16, fontWeight: FontWeight.bold)),
           ]),
           content: SizedBox(
             width: 350,
@@ -2706,7 +2691,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
 
                     bool isOff = gunlukDurum[kisi]!.contains('OFF') || gunlukDurum[kisi]!.contains('KAZANDIŞI');
                     if (isOff) return const SizedBox.shrink();
-                    if (dialogMode == 0 && kisi == _yalnIsim(currentPerson)) return const SizedBox.shrink();
+                    if (isTakasMode && kisi == _yalnIsim(currentPerson)) return const SizedBox.shrink();
 
                     bool yetkiVar = _vizeKontrol(kisi, pos, core);
                     bool prevWorked = prevRow.contains(kisi);
@@ -2714,20 +2699,20 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                     bool isBizimleKal = hIdx == saatler.length - 1 && bizimleKalSecilenler.contains(kisi);
                     bool uygun = yetkiVar && !prevWorked && !nextWorked && !isBizimleKal;
                     
-                    Color btnColor = dialogMode == 0 ? Colors.cyanAccent : (uygun ? Colors.green : (dialogMode == 1 ? Colors.redAccent : Colors.purpleAccent));
+                    Color btnColor = isTakasMode ? Colors.cyanAccent : (uygun ? Colors.green : Colors.redAccent);
                     
                     return ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: btnColor.withOpacity(dialogMode == 0 ? 0.1 : (uygun ? 0.15 : 0.12)),
+                        backgroundColor: btnColor.withOpacity(isTakasMode ? 0.1 : (uygun ? 0.15 : 0.12)),
                         side: BorderSide(color: btnColor.withOpacity(0.5)),
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)
                       ),
                       onPressed: () {
-                        if (dialogMode == 0) {
+                        if (isTakasMode) {
                           _bordTakasYap(currentPerson, kisi);
                           Navigator.pop(context);
-                        } else if (dialogMode == 1) {
-                          // PIN MODU (NO RECALC)
+                        } else {
+                          // PIN MODU: Doğrudan hücreye yaz — motor çalışmaz
                           setState(() {
                             int colIdx = sonBord.basliklar.indexOf(pos) + 1; // satirlar[row][0] = saat
                             if (colIdx > 0 && colIdx < sonBord.satirlar[hIdx].length) {
@@ -2741,27 +2726,9 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                             }
                           });
                           Navigator.pop(context);
-                        } else {
-                          // MOTOR MODU (PIN + RECALC)
-                          if (!_isModaUygunSaat(saatCtrl.text)) {
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("⚠️ ${isGunduzVardiyasi ? 'Gündüz' : 'Gece'} vardiyasına uymayan mantıksız bir saat girdiniz!"), backgroundColor: Colors.redAccent));
-                            return;
-                          }
-                          setState(() {
-                            if (!_kilitliSaatlerTarihli.containsKey(_aktifTarihVeMod)) _kilitliSaatlerTarihli[_aktifTarihVeMod] = {};
-                            if (!_kilitliSaatlerTarihli[_aktifTarihVeMod]!.containsKey(hIdx)) _kilitliSaatlerTarihli[_aktifTarihVeMod]![hIdx] = {};
-                            if (saatCtrl.text.trim().isNotEmpty) _kilitliSaatlerTarihli[_aktifTarihVeMod]![hIdx]![pos] = saatCtrl.text.trim();
-                            else _kilitliSaatlerTarihli[_aktifTarihVeMod]![hIdx]!.remove(pos);
-                            
-                            if (!_manuelAtananKisiler.containsKey(_aktifTarihVeMod)) _manuelAtananKisiler[_aktifTarihVeMod] = {};
-                            if (!_manuelAtananKisiler[_aktifTarihVeMod]!.containsKey(hIdx)) _manuelAtananKisiler[_aktifTarihVeMod]![hIdx] = {};
-                            _manuelAtananKisiler[_aktifTarihVeMod]![hIdx]![pos] = kisi;
-                          });
-                          _gruplariGuncelle(arsiveKaydet: false, pinleriTemizle: false);
-                          Navigator.pop(context);
                         }
                       },
-                      child: Text(kisi, style: TextStyle(color: dialogMode == 0 ? Colors.cyanAccent : (uygun ? Colors.white : Colors.white70), fontWeight: FontWeight.bold)),
+                      child: Text(kisi, style: TextStyle(color: isTakasMode ? Colors.cyanAccent : (uygun ? Colors.white : Colors.white70), fontWeight: FontWeight.bold)),
                     );
                   }).toList()
                 ),
