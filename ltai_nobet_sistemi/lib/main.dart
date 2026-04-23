@@ -1190,6 +1190,14 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     for (var k in geceAraSecilenler)  cascadeToAksam(k, aksamSiralanmis);
     for (var k in gece0508Secilenler) cascadeToAksam(k, aksamSiralanmis.reversed.toList());
     for (var k in gece0809Secilenler) cascadeToAksam(k, aksamSiralanmis.reversed.toList());
+    // Pinli kişilerin seti — sarmallar bunları atlayacak
+    Set<String> pinliGeceKisiler = {};
+    for (var k in gece1203Secilenler) { if (geceListe.contains(k)) pinliGeceKisiler.add(k); }
+    for (var k in geceAraSecilenler)  { if (geceListe.contains(k)) pinliGeceKisiler.add(k); }
+    for (var k in gece0508Secilenler) { if (geceListe.contains(k)) pinliGeceKisiler.add(k); }
+    for (var k in gece0809Secilenler) { if (geceListe.contains(k)) pinliGeceKisiler.add(k); }
+
+    Set<String> pinliAksamKisiler = Set.from(pinliGeceKisiler.where((k) => aksamListe.contains(k)));
 
     // ── 4C: AKŞAM SARMALI (kalan boşlukları doldur) ──
     int aksamN = aksamListe.length;
@@ -1204,7 +1212,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
           String aday = aksamListe[aksamPosIdx % aksamN];
           aksamPosIdx++;
           deneme++;
-          if (!slotTakiKisiler[slotIdx]!.contains(aday)) {
+          if (!slotTakiKisiler[slotIdx]!.contains(aday) && !pinliAksamKisiler.contains(aday)) {
             slotTakiKisiler[slotIdx]!.add(aday);
             break;
           }
@@ -1225,7 +1233,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
           String aday = geceListe[gecePosIdx % geceN];
           gecePosIdx++;
           deneme++;
-          if (!slotTakiKisiler[slotIdx]!.contains(aday)) {
+          if (!slotTakiKisiler[slotIdx]!.contains(aday) && !pinliGeceKisiler.contains(aday)) {
             slotTakiKisiler[slotIdx]!.add(aday);
             break;
           }
