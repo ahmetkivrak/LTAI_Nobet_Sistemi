@@ -2890,8 +2890,8 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                 )));
               } else {
                 String yIsim = _yalnIsim(text); // Oto-notu ayır: "BE (14:00)" → "BE"
-                bool h = istat[yIsim]?['IS_HAMAL'] ?? false; 
-                bool e = istat[yIsim]?['IS_ENSECI'] ?? false;
+                bool h = isGunduzVardiyasi && (istat[yIsim]?['IS_HAMAL'] ?? false); 
+                bool e = isGunduzVardiyasi && (istat[yIsim]?['IS_ENSECI'] ?? false);
                 
                 String optSaat = _kilitliSaatlerTarihli[_aktifTarihVeMod]?[idx]?[header] ?? "";
 
