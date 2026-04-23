@@ -2712,21 +2712,19 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                           _bordTakasYap(currentPerson, kisi);
                           Navigator.pop(context);
                         } else {
-                          if (!_isModaUygunSaat(saatCtrl.text)) {
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("⚠️ ${isGunduzVardiyasi ? 'Gündüz' : 'Gece'} vardiyasına uymayan mantıksız bir saat girdiniz!"), backgroundColor: Colors.redAccent));
-                            return;
-                          }
+                          // PIN MODU: Doğrudan hücreye yaz — motor çalışmaz
                           setState(() {
-                            if (!_kilitliSaatlerTarihli.containsKey(_aktifTarihVeMod)) _kilitliSaatlerTarihli[_aktifTarihVeMod] = {};
-                            if (!_kilitliSaatlerTarihli[_aktifTarihVeMod]!.containsKey(hIdx)) _kilitliSaatlerTarihli[_aktifTarihVeMod]![hIdx] = {};
-                            if (saatCtrl.text.trim().isNotEmpty) _kilitliSaatlerTarihli[_aktifTarihVeMod]![hIdx]![pos] = saatCtrl.text.trim();
-                            else _kilitliSaatlerTarihli[_aktifTarihVeMod]![hIdx]!.remove(pos);
-                            
-                            if (!_manuelAtananKisiler.containsKey(_aktifTarihVeMod)) _manuelAtananKisiler[_aktifTarihVeMod] = {};
-                            if (!_manuelAtananKisiler[_aktifTarihVeMod]!.containsKey(hIdx)) _manuelAtananKisiler[_aktifTarihVeMod]![hIdx] = {};
-                            _manuelAtananKisiler[_aktifTarihVeMod]![hIdx]![pos] = kisi;
+                            int colIdx = sonBord.basliklar.indexOf(pos) + 1; // satirlar[row][0] = saat
+                            if (colIdx > 0 && colIdx < sonBord.satirlar[hIdx].length) {
+                              sonBord.satirlar[hIdx][colIdx] = kisi;
+                            }
+                            // Saat notu varsa kaydet
+                            if (saatCtrl.text.trim().isNotEmpty) {
+                              if (!_kilitliSaatlerTarihli.containsKey(_aktifTarihVeMod)) _kilitliSaatlerTarihli[_aktifTarihVeMod] = {};
+                              if (!_kilitliSaatlerTarihli[_aktifTarihVeMod]!.containsKey(hIdx)) _kilitliSaatlerTarihli[_aktifTarihVeMod]![hIdx] = {};
+                              _kilitliSaatlerTarihli[_aktifTarihVeMod]![hIdx]![pos] = saatCtrl.text.trim();
+                            }
                           });
-                          _gruplariGuncelle(arsiveKaydet: false, pinleriTemizle: false);
                           Navigator.pop(context);
                         }
                       },
