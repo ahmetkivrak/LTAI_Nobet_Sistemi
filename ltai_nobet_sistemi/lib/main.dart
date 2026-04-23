@@ -825,9 +825,18 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     }
     
     // ─── SUP ONLY kişileri farklı slotlara dağıt ───
+    Map<int, int> slotSupOnlySayisi = {for (int i = 0; i < slotCount; i++) i: 0};
+    // Zaten atanmış (BK, Karınca, Ağustos) SUP ONLY kişileri say
+    for (var entry in kisiNumara.entries) {
+      if (supOnlySecilenler.contains(entry.key)) {
+        for (int s in numaraSlotlari[entry.value] ?? []) {
+          slotSupOnlySayisi[s] = (slotSupOnlySayisi[s] ?? 0) + 1;
+        }
+      }
+    }
+
     List<String> supOnlykisiler = aktifPersonel.where((k) => supOnlySecilenler.contains(k) && !kisiNumara.containsKey(k)).toList();
     supOnlykisiler.sort((a,b) => _getArsivYorgunlukOrtalamasi(a).compareTo(_getArsivYorgunlukOrtalamasi(b)));
-    Map<int, int> slotSupOnlySayisi = {for (int i = 0; i < slotCount; i++) i: 0};
     for (var k in supOnlykisiler) {
       int? bestNum; int bestScore = -999999;
       for (var num in tumNumaralar) {
@@ -1296,7 +1305,9 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
         
         for (var k in kList) {
           if (atanmislar.contains(k)) continue;
-          if (supOnlySecilenler.contains(k)) continue; 
+          // In night mode, we ignore supOnly restriction because there are no SUP positions.
+          // Everyone assigned to the slot must work the available TWR/DEL/GND chairs.
+          // if (supOnlySecilenler.contains(k)) continue; 
           
           int score = 0;
           var kYetki = yetkiler[k] ?? <String>{};
