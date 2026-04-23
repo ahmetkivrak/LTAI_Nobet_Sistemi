@@ -1122,13 +1122,12 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     }
 
     // ─────────────────────────────────────────────
-    // ADIM 4: Kronolojik İki-Sarmal Sistemi
+    // ADIM 4: Önce Seçilenler + Cascading + Sarmal
     //
-    //  Akşam sarmalı : [Akİlk → AkOrta → AkSon] (artan saat)
-    //  Gece sarmalı  : [Gece → ARA → Sabah → SonSaat] (artan saat)
-    //  Her sarmal kendi içinde kişi[posIdx % N] şeklinde döner.
-    //  geceOffSecilenler sadece akşam sarmalında yer alır.
-    //  Mikro seçilimler geceListe sırasını belirler (gece1203 önce, gece0508 son).
+    //  4A: Seçilenleri gece slotlarına doğrudan sabitle
+    //  4B: Cascading — seçilenlerin akşam karşılıklarını ata
+    //  4C: Kalan akşam boşluklarını sarmal ile doldur
+    //  4D: Kalan gece boşluklarını sarmal ile doldur
     // ─────────────────────────────────────────────
 
     // Akşam slotları artan sırala (19:00 → 20:40 → 22:20)
@@ -1156,33 +1155,82 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     List<String> geceListe = List.from(siraliKisiler);
 
     Map<int, List<String>> slotTakiKisiler = {};
+    for (int i = 0; i < slotCount; i++) slotTakiKisiler[i] = [];
 
-    // ── AKŞAM SARMALI ──
+    // ── 4A: SEÇİLENLERİ GECE SLOTLARINA SABİTLE ──
+    void pinToSlot(int slotIdx, String kisi, List<String> havuz) {
+      if (slotIdx == -1 || !havuz.contains(kisi)) return;
+      int kap = slotPozisyonlari[slotIdx]?.length ?? 0;
+      if (slotTakiKisiler[slotIdx]!.length < kap && !slotTakiKisiler[slotIdx]!.contains(kisi)) {
+        slotTakiKisiler[slotIdx]!.add(kisi);
+      }
+    }
+
+    for (var k in gece1203Secilenler) pinToSlot(geceSlotIdx, k, geceListe);
+    for (var k in geceAraSecilenler)  pinToSlot(araSlotIdx, k, geceListe);
+    for (var k in gece0508Secilenler) pinToSlot(sabahSlotIdx, k, geceListe);
+    for (var k in gece0809Secilenler) pinToSlot(sonSaatSlotIdx, k, geceListe);
+
+    // ── 4B: CASCADING — AKŞAM KARŞILIKLARI ──
+    // Gece1 → en erken akşam slotu
+    // ARA   → erken akşam slotu (gece1 ile aynı olabilir)
+    // Sabah + Yarım OFF → en son akşam slotu
+    void cascadeToAksam(String kisi, List<int> slotArama) {
+      if (!aksamListe.contains(kisi)) return;
+      for (int slotIdx in slotArama) {
+        int kap = slotPozisyonlari[slotIdx]?.length ?? 0;
+        if (slotTakiKisiler[slotIdx]!.length < kap && !slotTakiKisiler[slotIdx]!.contains(kisi)) {
+          slotTakiKisiler[slotIdx]!.add(kisi);
+          return;
+        }
+      }
+    }
+
+    for (var k in gece1203Secilenler) cascadeToAksam(k, aksamSiralanmis);
+    for (var k in geceAraSecilenler)  cascadeToAksam(k, aksamSiralanmis);
+    for (var k in gece0508Secilenler) cascadeToAksam(k, aksamSiralanmis.reversed.toList());
+    for (var k in gece0809Secilenler) cascadeToAksam(k, aksamSiralanmis.reversed.toList());
+
+    // ── 4C: AKŞAM SARMALI (kalan boşlukları doldur) ──
     int aksamN = aksamListe.length;
     int aksamPosIdx = 0;
     for (int slotIdx in aksamSiralanmis) {
       if (!slotPozisyonlari.containsKey(slotIdx)) continue;
       int kap = slotPozisyonlari[slotIdx]!.length;
-      List<String> sonuc = [];
-      for (int j = 0; j < kap && aksamN > 0; j++) {
-        sonuc.add(aksamListe[aksamPosIdx % aksamN]);
-        aksamPosIdx++;
+      int mevcutDolu = slotTakiKisiler[slotIdx]!.length;
+      for (int j = 0; j < (kap - mevcutDolu) && aksamN > 0; j++) {
+        int deneme = 0;
+        while (deneme < aksamN) {
+          String aday = aksamListe[aksamPosIdx % aksamN];
+          aksamPosIdx++;
+          deneme++;
+          if (!slotTakiKisiler[slotIdx]!.contains(aday)) {
+            slotTakiKisiler[slotIdx]!.add(aday);
+            break;
+          }
+        }
       }
-      slotTakiKisiler[slotIdx] = sonuc;
     }
 
-    // ── GECE SARMALI ──
+    // ── 4D: GECE SARMALI (kalan boşlukları doldur) ──
     int geceN = geceListe.length;
     int gecePosIdx = 0;
     for (int slotIdx in geceSirali) {
       if (!slotPozisyonlari.containsKey(slotIdx)) continue;
       int kap = slotPozisyonlari[slotIdx]!.length;
-      List<String> sonuc = [];
-      for (int j = 0; j < kap && geceN > 0; j++) {
-        sonuc.add(geceListe[gecePosIdx % geceN]);
-        gecePosIdx++;
+      int mevcutDolu = slotTakiKisiler[slotIdx]!.length;
+      for (int j = 0; j < (kap - mevcutDolu) && geceN > 0; j++) {
+        int deneme = 0;
+        while (deneme < geceN) {
+          String aday = geceListe[gecePosIdx % geceN];
+          gecePosIdx++;
+          deneme++;
+          if (!slotTakiKisiler[slotIdx]!.contains(aday)) {
+            slotTakiKisiler[slotIdx]!.add(aday);
+            break;
+          }
+        }
       }
-      slotTakiKisiler[slotIdx] = sonuc;
     }
 
     // ─────────────────────────────────────────────
@@ -3212,7 +3260,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                           spacing: 4, runSpacing: 2,
                           children: [
                             ...getSektorlerByLevel(gunlukSeviye).map((pos) => _yetkiBtn(k, pos, setD)),
-                            _ozelSecimBtn(k, 'SUP ONLY', Colors.red.shade900, setD),
+                            if (isGunduzVardiyasi) _ozelSecimBtn(k, 'SUP ONLY', Colors.red.shade900, setD),
                           ],
                         ),
                         const SizedBox(height: 6),
