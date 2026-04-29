@@ -498,6 +498,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     _gruplariGuncelle(arsiveKaydet: false);
     _loadNotamPrefs(); // Rozet tercihlerini yükle
     _loadPersonelPrefs(); // Kişi listesi hafızadan yükle
+    _loadTakvimIzinler(); // Takvim izinlerini yükle
   }
 
   void _tariheGoreVerileriGuncelle() {
@@ -3695,8 +3696,45 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
   };
 
   // ═══════════════════════════════════════════════════
-  // NÖBET TAKVİMİ
+  // NÖBET TAKVİMİ + İZİN TAKİBİ
   // ═══════════════════════════════════════════════════
+  // Tarih → izinli personel seti (key: "dd.MM.yyyy")
+  Map<String, Set<String>> _takvimIzinler = {};
+
+  String _tarihKey(DateTime d) => "${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year}";
+
+  Future<void> _loadTakvimIzinler() async {
+    final prefs = await SharedPreferences.getInstance();
+    String? raw = prefs.getString('takvimIzin_$_aktifEkip');
+    if (raw != null) {
+      try {
+        Map<String, dynamic> parsed = json.decode(raw);
+        _takvimIzinler = parsed.map((k, v) => MapEntry(k, Set<String>.from(v)));
+      } catch (_) {}
+    }
+  }
+
+  Future<void> _saveTakvimIzinler() async {
+    final prefs = await SharedPreferences.getInstance();
+    Map<String, List<String>> toSave = _takvimIzinler.map((k, v) => MapEntry(k, v.toList()));
+    await prefs.setString('takvimIzin_$_aktifEkip', json.encode(toSave));
+  }
+
+  /// Takvimden bugünün izinlilerini borda uygula
+  void _takvimdenIzinUygula() {
+    String bugunKey = _tarihKey(DateTime.now());
+    Set<String> izinliler = _takvimIzinler[bugunKey] ?? {};
+    if (izinliler.isEmpty) return;
+    setState(() {
+      for (var k in izinliler) {
+        if (tumPersonelHavuzu.contains(k)) {
+          gunlukDurum[k] = {'OFF'};
+        }
+      }
+    });
+    _gruplariGuncelle(arsiveKaydet: false);
+  }
+
   void _nobetTakviminiAc() {
     DateTime gorunenAy = DateTime(DateTime.now().year, DateTime.now().month, 1);
 
@@ -3705,10 +3743,79 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
         int yil = gorunenAy.year;
         int ay = gorunenAy.month;
         int gunSayisi = DateTime(yil, ay + 1, 0).day;
-        int ilkGunHafta = DateTime(yil, ay, 1).weekday; // 1=Pzt ... 7=Paz
+        int ilkGunHafta = DateTime(yil, ay, 1).weekday;
 
         List<String> ayIsimleri = ['', 'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
         List<String> gunIsimleri = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
+
+        void _gunIzinDuzenle(DateTime tarih) {
+          String key = _tarihKey(tarih);
+          Set<String> secili = Set<String>.from(_takvimIzinler[key] ?? {});
+
+          showDialog(context: ctx, builder: (ctx2) {
+            return StatefulBuilder(builder: (ctx2, setD2) {
+              return AlertDialog(
+                backgroundColor: const Color(0xFF222222),
+                title: Text(
+                  '${tarih.day} ${ayIsimleri[tarih.month]} ${tarih.year} — İzinliler',
+                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                ),
+                content: SizedBox(
+                  width: 300,
+                  child: Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: tumPersonelHavuzu.map((k) {
+                      bool izinli = secili.contains(k);
+                      return GestureDetector(
+                        onTap: () => setD2(() {
+                          if (izinli) secili.remove(k); else secili.add(k);
+                        }),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: izinli ? Colors.redAccent.withOpacity(0.25) : Colors.white.withOpacity(0.05),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: izinli ? Colors.redAccent : Colors.white24),
+                          ),
+                          child: Text(
+                            k,
+                            style: TextStyle(
+                              color: izinli ? Colors.redAccent : Colors.white70,
+                              fontWeight: izinli ? FontWeight.bold : FontWeight.normal,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      setD2(() => secili.clear());
+                    },
+                    child: const Text('TEMİZLE', style: TextStyle(color: Colors.grey)),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      if (secili.isEmpty) {
+                        _takvimIzinler.remove(key);
+                      } else {
+                        _takvimIzinler[key] = secili;
+                      }
+                      _saveTakvimIzinler();
+                      setD(() {}); // takvimi güncelle
+                      Navigator.pop(ctx2);
+                    },
+                    child: const Text('KAYDET', style: TextStyle(color: Colors.greenAccent)),
+                  ),
+                ],
+              );
+            });
+          });
+        }
 
         return AlertDialog(
           backgroundColor: const Color(0xFF1A1A1A),
@@ -3727,7 +3834,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
             ),
           ]),
           content: SizedBox(
-            width: 500,
+            width: 560,
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               // Gün başlıkları
               Row(children: gunIsimleri.map((g) => Expanded(
@@ -3749,58 +3856,76 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                     bool gBizim = gEkip == _aktifEkip;
                     bool nBizim = nEkip == _aktifEkip;
 
-                    return Expanded(child: Container(
-                      margin: const EdgeInsets.all(1),
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      decoration: BoxDecoration(
-                        color: bugun ? Colors.white.withOpacity(0.1) : Colors.transparent,
-                        borderRadius: BorderRadius.circular(6),
-                        border: bugun ? Border.all(color: Colors.orangeAccent, width: 1.5) : null,
+                    String key = _tarihKey(tarih);
+                    Set<String> izinliler = _takvimIzinler[key] ?? {};
+                    bool izinVar = izinliler.isNotEmpty;
+
+                    return Expanded(child: GestureDetector(
+                      onTap: () => _gunIzinDuzenle(tarih),
+                      child: Container(
+                        margin: const EdgeInsets.all(1),
+                        padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 1),
+                        decoration: BoxDecoration(
+                          color: bugun ? Colors.white.withOpacity(0.1) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(6),
+                          border: bugun ? Border.all(color: Colors.orangeAccent, width: 1.5) : null,
+                        ),
+                        child: Column(mainAxisSize: MainAxisSize.min, children: [
+                          Text(
+                            '$hucreNo',
+                            style: TextStyle(
+                              color: bugun ? Colors.orangeAccent : Colors.white70,
+                              fontSize: 11,
+                              fontWeight: bugun ? FontWeight.bold : FontWeight.normal,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          // Gündüz
+                          Container(
+                            width: 34, height: 14,
+                            decoration: BoxDecoration(
+                              color: gBizim ? Colors.amber.withOpacity(0.3) : Colors.transparent,
+                              borderRadius: BorderRadius.circular(3),
+                              border: Border.all(color: gBizim ? Colors.amber : Colors.white12, width: 0.5),
+                            ),
+                            child: Center(child: Text(
+                              gEkip,
+                              style: TextStyle(
+                                color: gBizim ? Colors.amber : EkipVerisi.renkler[gEkip]!.withOpacity(0.6),
+                                fontSize: 8, fontWeight: FontWeight.bold,
+                              ),
+                            )),
+                          ),
+                          const SizedBox(height: 1),
+                          // Gece
+                          Container(
+                            width: 34, height: 14,
+                            decoration: BoxDecoration(
+                              color: nBizim ? Colors.lightBlueAccent.withOpacity(0.3) : Colors.transparent,
+                              borderRadius: BorderRadius.circular(3),
+                              border: Border.all(color: nBizim ? Colors.lightBlueAccent : Colors.white12, width: 0.5),
+                            ),
+                            child: Center(child: Text(
+                              nEkip,
+                              style: TextStyle(
+                                color: nBizim ? Colors.lightBlueAccent : EkipVerisi.renkler[nEkip]!.withOpacity(0.6),
+                                fontSize: 8, fontWeight: FontWeight.bold,
+                              ),
+                            )),
+                          ),
+                          // İzinliler
+                          if (izinVar) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              izinliler.join(' '),
+                              style: const TextStyle(color: Colors.redAccent, fontSize: 6, fontWeight: FontWeight.bold),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ]),
                       ),
-                      child: Column(mainAxisSize: MainAxisSize.min, children: [
-                        Text(
-                          '$hucreNo',
-                          style: TextStyle(
-                            color: bugun ? Colors.orangeAccent : Colors.white70,
-                            fontSize: 11,
-                            fontWeight: bugun ? FontWeight.bold : FontWeight.normal,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        // Gündüz
-                        Container(
-                          width: 30, height: 14,
-                          decoration: BoxDecoration(
-                            color: gBizim ? Colors.amber.withOpacity(0.3) : Colors.transparent,
-                            borderRadius: BorderRadius.circular(3),
-                            border: Border.all(color: gBizim ? Colors.amber : Colors.white12, width: 0.5),
-                          ),
-                          child: Center(child: Text(
-                            gEkip,
-                            style: TextStyle(
-                              color: gBizim ? Colors.amber : EkipVerisi.renkler[gEkip]!.withOpacity(0.6),
-                              fontSize: 8, fontWeight: FontWeight.bold,
-                            ),
-                          )),
-                        ),
-                        const SizedBox(height: 1),
-                        // Gece
-                        Container(
-                          width: 30, height: 14,
-                          decoration: BoxDecoration(
-                            color: nBizim ? Colors.lightBlueAccent.withOpacity(0.3) : Colors.transparent,
-                            borderRadius: BorderRadius.circular(3),
-                            border: Border.all(color: nBizim ? Colors.lightBlueAccent : Colors.white12, width: 0.5),
-                          ),
-                          child: Center(child: Text(
-                            nEkip,
-                            style: TextStyle(
-                              color: nBizim ? Colors.lightBlueAccent : EkipVerisi.renkler[nEkip]!.withOpacity(0.6),
-                              fontSize: 8, fontWeight: FontWeight.bold,
-                            ),
-                          )),
-                        ),
-                      ]),
                     ));
                   })),
                 );
@@ -3815,10 +3940,23 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                 Container(width: 12, height: 12, decoration: BoxDecoration(color: Colors.lightBlueAccent.withOpacity(0.3), border: Border.all(color: Colors.lightBlueAccent, width: 0.5), borderRadius: BorderRadius.circular(2))),
                 const SizedBox(width: 4),
                 const Text('Gece', style: TextStyle(color: Colors.lightBlueAccent, fontSize: 10)),
+                const SizedBox(width: 16),
+                const Text('🔴', style: TextStyle(fontSize: 10)),
+                const SizedBox(width: 4),
+                const Text('İzinli', style: TextStyle(color: Colors.redAccent, fontSize: 10)),
               ]),
             ]),
           ),
-          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("KAPAT"))],
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _takvimdenIzinUygula();
+              },
+              child: const Text('BUGÜNÜ BORDA UYGULA', style: TextStyle(color: Colors.greenAccent, fontSize: 11)),
+            ),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("KAPAT")),
+          ],
         );
       });
     });
