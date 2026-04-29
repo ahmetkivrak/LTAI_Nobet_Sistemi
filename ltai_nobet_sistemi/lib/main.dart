@@ -3746,123 +3746,207 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
 
   void _nobetTakviminiAc() {
     DateTime bugun = DateTime.now();
-    int todayOffset = bugun.difference(EkipVerisi.gunduzReferans).inDays;
     int ekipIdx = EkipVerisi.rotasyon.indexOf(_aktifEkip);
     if (ekipIdx < 0) ekipIdx = 0;
-    int fark = (todayOffset - ekipIdx) % 5;
-    if (fark < 0) fark += 5;
-    DateTime baslangic = bugun.subtract(Duration(days: fark));
-    int sayfa = 0;
+    // Gorunen ay
+    DateTime gorunenAy = DateTime(bugun.year, bugun.month, 1);
 
     showDialog(context: context, builder: (ctx) {
       return StatefulBuilder(builder: (ctx, setD) {
-        List<String> gA = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
-        List<String> aA = ['', 'Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
+        List<String> gA = ['Pzt', 'Sal', 'Car', 'Per', 'Cum', 'Cmt', 'Paz'];
+        List<String> ayAd = ['', 'Ocak', 'Subat', 'Mart', 'Nisan', 'Mayis', 'Haziran', 'Temmuz', 'Agustos', 'Eylul', 'Ekim', 'Kasim', 'Aralik'];
 
-        DateTime sb = baslangic.add(Duration(days: sayfa * 30));
-        List<List<DateTime>> dng = [];
-        for (int i = 0; i < 6; i++) {
-          DateTime db = sb.add(Duration(days: i * 5));
-          dng.add(List.generate(5, (j) => db.add(Duration(days: j))));
+        int yil = gorunenAy.year;
+        int ay = gorunenAy.month;
+
+        // Bu aydaki tum dongu baslangiclarini bul
+        // Ekibin gunduz referansindan hesapla
+        DateTime ayBaslangic = DateTime(yil, ay, 1);
+        DateTime aySonu = DateTime(yil, ay + 1, 0);
+        int refOffset = ayBaslangic.difference(EkipVerisi.gunduzReferans).inDays;
+        int fark = (refOffset - ekipIdx) % 5;
+        if (fark < 0) fark += 5;
+        // Ilk dongu baslangici (aydan once olabilir)
+        DateTime ilkDongu = ayBaslangic.subtract(Duration(days: fark));
+        // Eger ilkDongu aydan once ve dongunun hicbir gunu bu ayda degilse bir sonrakine git
+        if (ilkDongu.add(const Duration(days: 4)).month != ay && ilkDongu.month != ay) {
+          ilkDongu = ilkDongu.add(const Duration(days: 5));
         }
 
-        Widget blok(List<DateTime> gunler) {
-          List<Color?> sol = [Colors.amber, Colors.lightBlueAccent, null, null, null];
-          return Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            decoration: BoxDecoration(color: Colors.white.withOpacity(0.02), borderRadius: BorderRadius.circular(6)),
-            child: Column(children: List.generate(5, (idx) {
-              DateTime g = gunler[idx];
-              bool bM = g.day == bugun.day && g.month == bugun.month && g.year == bugun.year;
-              String key = _tarihKey(g);
-              Set<String> iz = _takvimIzinler[key] ?? {};
-              bool off = idx >= 2;
-              return GestureDetector(
-                onTap: () {
-                  Set<String> sec = Set<String>.from(_takvimIzinler[_tarihKey(g)] ?? {});
-                  showDialog(context: ctx, builder: (c2) {
-                    return StatefulBuilder(builder: (c2, s2) {
-                      return AlertDialog(
-                        backgroundColor: const Color(0xFF222222),
-                        title: Text('${g.day} ${aA[g.month]} ${gA[g.weekday - 1]}', style: const TextStyle(color: Colors.white, fontSize: 14)),
-                        content: SizedBox(width: 300, child: Wrap(spacing: 6, runSpacing: 6,
-                          children: tumPersonelHavuzu.map((k) {
-                            bool izn = sec.contains(k);
-                            return GestureDetector(
-                              onTap: () => s2(() { if (izn) sec.remove(k); else sec.add(k); }),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: izn ? Colors.redAccent.withOpacity(0.25) : Colors.white.withOpacity(0.05),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: izn ? Colors.redAccent : Colors.white24),
-                                ),
-                                child: Text(k, style: TextStyle(color: izn ? Colors.redAccent : Colors.white70, fontWeight: izn ? FontWeight.bold : FontWeight.normal, fontSize: 13)),
-                              ),
-                            );
-                          }).toList(),
-                        )),
-                        actions: [
-                          TextButton(onPressed: () => s2(() => sec.clear()), child: const Text('TEMİZLE', style: TextStyle(color: Colors.grey, fontSize: 11))),
-                          TextButton(onPressed: () {
-                            String dk = _tarihKey(g);
-                            if (sec.isEmpty) _takvimIzinler.remove(dk); else _takvimIzinler[dk] = sec;
-                            _saveTakvimIzinler();
-                            setD(() {});
-                            Navigator.pop(c2);
-                          }, child: const Text('✓', style: TextStyle(color: Colors.greenAccent, fontSize: 18))),
-                        ],
-                      );
-                    });
-                  });
-                },
-                child: Container(
-                  margin: const EdgeInsets.symmetric(vertical: 0.5),
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: bM ? Colors.orangeAccent.withOpacity(0.1) : Colors.transparent,
-                    borderRadius: BorderRadius.circular(4),
-                    border: bM ? Border.all(color: Colors.orangeAccent, width: 1) : null,
-                  ),
-                  child: Row(children: [
-                    Container(width: 3, height: 14, margin: const EdgeInsets.only(right: 6),
-                      decoration: BoxDecoration(color: sol[idx] ?? Colors.white.withOpacity(0.06), borderRadius: BorderRadius.circular(2))),
-                    SizedBox(width: 44, child: Text('${g.day} ${aA[g.month]}',
-                      style: TextStyle(color: bM ? Colors.orangeAccent : (off ? Colors.white24 : Colors.white70), fontSize: 11, fontWeight: bM ? FontWeight.bold : FontWeight.normal))),
-                    SizedBox(width: 24, child: Text(gA[g.weekday - 1],
-                      style: TextStyle(color: bM ? Colors.orangeAccent.withOpacity(0.7) : Colors.white24, fontSize: 9))),
-                    Expanded(child: iz.isNotEmpty
-                      ? Text(iz.join(' '), style: const TextStyle(color: Colors.redAccent, fontSize: 9, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)
-                      : const SizedBox()),
-                  ]),
-                ),
+        List<List<DateTime>> donguler = [];
+        DateTime d = ilkDongu;
+        while (d.isBefore(aySonu.add(const Duration(days: 1)))) {
+          List<DateTime> dongu = List.generate(5, (j) => d.add(Duration(days: j)));
+          // En az bir gunu bu ayda mi?
+          if (dongu.any((g) => g.month == ay)) {
+            donguler.add(dongu);
+          }
+          d = d.add(const Duration(days: 5));
+        }
+
+        void _gunIzinDuzenle(DateTime gun) {
+          String dKey = _tarihKey(gun);
+          Set<String> sec = Set<String>.from(_takvimIzinler[dKey] ?? {});
+          showDialog(context: ctx, builder: (c2) {
+            return StatefulBuilder(builder: (c2, s2) {
+              return AlertDialog(
+                backgroundColor: const Color(0xFF222222),
+                title: Text('${gun.day}.${gun.month.toString().padLeft(2, '0')} ${gA[gun.weekday - 1]}',
+                  style: const TextStyle(color: Colors.white, fontSize: 14)),
+                content: SizedBox(width: 300, child: Wrap(spacing: 6, runSpacing: 6,
+                  children: tumPersonelHavuzu.map((k) {
+                    bool izn = sec.contains(k);
+                    return GestureDetector(
+                      onTap: () => s2(() { if (izn) sec.remove(k); else sec.add(k); }),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: izn ? Colors.redAccent.withOpacity(0.25) : Colors.white.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: izn ? Colors.redAccent : Colors.white24),
+                        ),
+                        child: Text(k, style: TextStyle(color: izn ? Colors.redAccent : Colors.white70,
+                          fontWeight: izn ? FontWeight.bold : FontWeight.normal, fontSize: 13)),
+                      ),
+                    );
+                  }).toList(),
+                )),
+                actions: [
+                  TextButton(onPressed: () => s2(() => sec.clear()),
+                    child: const Text('TEMIZLE', style: TextStyle(color: Colors.grey, fontSize: 11))),
+                  TextButton(onPressed: () {
+                    if (sec.isEmpty) _takvimIzinler.remove(dKey); else _takvimIzinler[dKey] = sec;
+                    _saveTakvimIzinler();
+                    setD(() {});
+                    Navigator.pop(c2);
+                  }, child: const Icon(Icons.check, color: Colors.greenAccent, size: 20)),
+                ],
               );
-            })),
+            });
+          });
+        }
+
+        Widget donguSatiri(List<DateTime> gunler) {
+          // gunler[0]=gunduz, gunler[1]=gece, gunler[2-4]=off
+          return Container(
+            margin: const EdgeInsets.only(bottom: 6),
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.02),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(children: [
+              // Ust satir: 5 gun yan yana
+              Row(children: List.generate(5, (idx) {
+                DateTime g = gunler[idx];
+                bool bM = g.day == bugun.day && g.month == bugun.month && g.year == bugun.year;
+                bool buAyda = g.month == ay;
+                bool off = idx >= 2;
+                Color? solRenk = idx == 0 ? Colors.amber : (idx == 1 ? Colors.lightBlueAccent : null);
+
+                return Expanded(child: GestureDetector(
+                  onTap: () => _gunIzinDuzenle(g),
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 1),
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    decoration: BoxDecoration(
+                      color: bM ? Colors.orangeAccent.withOpacity(0.12) : Colors.transparent,
+                      borderRadius: BorderRadius.circular(4),
+                      border: bM ? Border.all(color: Colors.orangeAccent, width: 1.5) : null,
+                    ),
+                    child: Column(children: [
+                      // Renk cubugu
+                      Container(width: 20, height: 3, margin: const EdgeInsets.only(bottom: 3),
+                        decoration: BoxDecoration(
+                          color: solRenk ?? Colors.white.withOpacity(0.06),
+                          borderRadius: BorderRadius.circular(2))),
+                      // Gun numarasi
+                      Text('${g.day}',
+                        style: TextStyle(
+                          color: bM ? Colors.orangeAccent : (buAyda ? (off ? Colors.white30 : Colors.white70) : Colors.white12),
+                          fontSize: 13, fontWeight: (bM || !off) ? FontWeight.bold : FontWeight.normal)),
+                      // Gun adi
+                      Text(gA[g.weekday - 1],
+                        style: TextStyle(color: bM ? Colors.orangeAccent.withOpacity(0.6) : Colors.white20, fontSize: 8)),
+                    ]),
+                  ),
+                ));
+              })),
+              // Alt kisim: gunduz ve gece altinda izinliler (ilk 2 sutun genisliginde)
+              Builder(builder: (context) {
+                String key0 = _tarihKey(gunler[0]);
+                String key1 = _tarihKey(gunler[1]);
+                Set<String> iz0 = _takvimIzinler[key0] ?? {};
+                Set<String> iz1 = _takvimIzinler[key1] ?? {};
+                if (iz0.isEmpty && iz1.isEmpty) return const SizedBox();
+
+                // Her sutunu 3+3 yerlestir (2 kolon, 3 satir)
+                List<String> list0 = iz0.toList();
+                List<String> list1 = iz1.toList();
+                int maxSatir = [((list0.length + 1) ~/ 2), ((list1.length + 1) ~/ 2), 1].reduce((a, b) => a > b ? a : b);
+
+                return Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Row(children: [
+                    // Gunduz izinlileri (2/5 genislik)
+                    Expanded(flex: 2, child: iz0.isEmpty ? const SizedBox() : Wrap(
+                      spacing: 2, runSpacing: 1, alignment: WrapAlignment.center,
+                      children: list0.map((k) => Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+                        child: Text(k, style: const TextStyle(color: Colors.redAccent, fontSize: 8, fontWeight: FontWeight.bold)),
+                      )).toList(),
+                    )),
+                    // Gece izinlileri (2/5 genislik)
+                    Expanded(flex: 2, child: iz1.isEmpty ? const SizedBox() : Wrap(
+                      spacing: 2, runSpacing: 1, alignment: WrapAlignment.center,
+                      children: list1.map((k) => Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+                        child: Text(k, style: const TextStyle(color: Colors.redAccent, fontSize: 8, fontWeight: FontWeight.bold)),
+                      )).toList(),
+                    )),
+                    // Off gunleri bos (3/5 genislik)
+                    const Expanded(flex: 3, child: SizedBox()),
+                  ]),
+                );
+              }),
+            ]),
           );
         }
+
+        // Donguleri 2 sutuna bol (sol ve sag)
+        int yarisi = (donguler.length + 1) ~/ 2;
+        List<List<DateTime>> sol = donguler.sublist(0, yarisi.clamp(0, donguler.length));
+        List<List<DateTime>> sag = donguler.sublist(yarisi.clamp(0, donguler.length));
 
         return AlertDialog(
           backgroundColor: const Color(0xFF1A1A1A),
           titlePadding: const EdgeInsets.fromLTRB(8, 8, 4, 0),
           title: Row(children: [
-            IconButton(icon: const Icon(Icons.chevron_left, color: Colors.white38, size: 18), onPressed: () => setD(() => sayfa--)),
-            Expanded(child: Center(child: Text('$_aktifEkip',
-              style: TextStyle(color: EkipVerisi.renkler[_aktifEkip], fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: 4)))),
-            IconButton(icon: const Icon(Icons.chevron_right, color: Colors.white38, size: 18), onPressed: () => setD(() => sayfa++)),
-            IconButton(icon: const Icon(Icons.close, color: Colors.white24, size: 18), onPressed: () => Navigator.pop(ctx)),
+            IconButton(icon: const Icon(Icons.chevron_left, color: Colors.white38, size: 18),
+              onPressed: () => setD(() => gorunenAy = DateTime(yil, ay - 1, 1))),
+            Expanded(child: Center(child: Text('${ayAd[ay]} $yil',
+              style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 2)))),
+            IconButton(icon: const Icon(Icons.chevron_right, color: Colors.white38, size: 18),
+              onPressed: () => setD(() => gorunenAy = DateTime(yil, ay + 1, 1))),
+            IconButton(icon: const Icon(Icons.close, color: Colors.white24, size: 18),
+              onPressed: () => Navigator.pop(ctx)),
           ]),
-          contentPadding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
-          content: SizedBox(width: 460, child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Expanded(child: Column(mainAxisSize: MainAxisSize.min, children: dng.sublist(0, 3).map((d) => blok(d)).toList())),
-            const SizedBox(width: 8),
-            Expanded(child: Column(mainAxisSize: MainAxisSize.min, children: dng.sublist(3, 6).map((d) => blok(d)).toList())),
-          ])),
+          contentPadding: const EdgeInsets.fromLTRB(10, 4, 10, 8),
+          content: SizedBox(
+            width: 700,
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Expanded(child: Column(mainAxisSize: MainAxisSize.min,
+                children: sol.map((d) => donguSatiri(d)).toList())),
+              const SizedBox(width: 6),
+              Expanded(child: Column(mainAxisSize: MainAxisSize.min,
+                children: sag.map((d) => donguSatiri(d)).toList())),
+            ]),
+          ),
           actions: const [],
         );
       });
     });
   }
-
   void _notamEkraniAc() {
     bool modalLoading = false;
 
