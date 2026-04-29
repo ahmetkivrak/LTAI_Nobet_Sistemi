@@ -2822,7 +2822,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('$_aktifEkip', style: TextStyle(color: EkipVerisi.renkler[_aktifEkip], fontWeight: FontWeight.w900, fontSize: 20, letterSpacing: 4)),
+        title: const Text(''),
         centerTitle: false,
         backgroundColor: Colors.black, leading: null,
         actions: [
