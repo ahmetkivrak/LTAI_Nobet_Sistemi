@@ -110,6 +110,27 @@ class EkipVerisi {
     'D': Color(0xFFE91E63),
     'E': Color(0xFF9C27B0),
   };
+
+  // Ekip rotasyon sırası: D → E → A → B → C → D → ...
+  static const List<String> rotasyon = ['D', 'E', 'A', 'B', 'C'];
+  // Referans tarih: 29 Nisan 2026 Gündüz = D Ekibi
+  static final DateTime gunduzReferans = DateTime(2026, 4, 29);
+  // Referans tarih: 30 Nisan 2026 Gece = D Ekibi
+  static final DateTime geceReferans = DateTime(2026, 4, 30);
+
+  /// Verilen tarih için gündüz ekibini döndürür
+  static String gunduzEkibi(DateTime tarih) {
+    int fark = tarih.difference(gunduzReferans).inDays % 5;
+    if (fark < 0) fark += 5;
+    return rotasyon[fark];
+  }
+
+  /// Verilen tarih için gece ekibini döndürür
+  static String geceEkibi(DateTime tarih) {
+    int fark = tarih.difference(geceReferans).inDays % 5;
+    if (fark < 0) fark += 5;
+    return rotasyon[fark];
+  }
 }
 
 // ═══════════════════════════════════════════════════
@@ -172,16 +193,7 @@ class _EkipSecimSayfasiState extends State<EkipSecimSayfasi> {
                 'LTAI KULE',
                 style: TextStyle(color: Colors.orangeAccent, fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: 6),
               ),
-              const SizedBox(height: 4),
-              Text(
-                'Nöbet Planlama Sistemi',
-                style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 13, letterSpacing: 2),
-              ),
               const SizedBox(height: 40),
-
-              // Ekip Butonları
-              const Text('EKİP SEÇ', style: TextStyle(color: Colors.white54, fontSize: 11, letterSpacing: 3)),
-              const SizedBox(height: 16),
               Wrap(
                 spacing: 12,
                 runSpacing: 12,
@@ -291,11 +303,7 @@ class _EkipSecimSayfasiState extends State<EkipSecimSayfasi> {
                 ),
               ],
 
-              const SizedBox(height: 40),
-              Text(
-                'v2.4.0',
-                style: TextStyle(color: Colors.white.withOpacity(0.2), fontSize: 10),
-              ),
+
             ],
           ),
         ),
@@ -2787,13 +2795,20 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: null, backgroundColor: Colors.black, leading: null,
+      appBar: AppBar(
+        title: Text('$_aktifEkip', style: TextStyle(color: EkipVerisi.renkler[_aktifEkip], fontWeight: FontWeight.w900, fontSize: 20, letterSpacing: 4)),
+        centerTitle: false,
+        backgroundColor: Colors.black, leading: null,
         actions: [
           IconButton(icon: const Icon(Icons.airplanemode_active, color: Colors.greenAccent), tooltip: "Trafik Sayısı", onPressed: _isiHaritasiniAc),
           IconButton(icon: const Text("🌦️", style: TextStyle(fontSize: 22)), tooltip: "LTAI Meteorological Info", onPressed: _airgramEkraniAc),
           IconButton(icon: const Icon(Icons.assignment_late, color: Colors.amber), tooltip: "NOTAM", onPressed: _notamEkraniAc),
-          IconButton(icon: const Icon(Icons.handshake, color: Colors.purpleAccent), tooltip: "HOTO (Devir/Teslim)", onPressed: () {}), // TODO: HOTO ekranı eklenecek
+          IconButton(icon: const Icon(Icons.handshake, color: Colors.purpleAccent), tooltip: "HOTO (Devir/Teslim)", onPressed: () {}),
+          IconButton(icon: const Icon(Icons.calendar_month, color: Colors.cyanAccent), tooltip: "Nöbet Takvimi", onPressed: _nobetTakviminiAc),
           IconButton(icon: const Icon(Icons.settings, color: Colors.orangeAccent), tooltip: "Ayarlar ve Bord Planlama", onPressed: _kadroSecimEkraniAc),
+          IconButton(icon: const Icon(Icons.logout, color: Colors.redAccent), tooltip: "Çıkış", onPressed: () {
+            Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const EkipSecimSayfasi()));
+          }),
           const SizedBox(width: 10),
         ],
       ),
@@ -3678,6 +3693,136 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     "🌦️ METEOROLOJİ": [Colors.tealAccent, 5],
     "🚧 MANİA/VİNÇ": [Colors.grey, 6],
   };
+
+  // ═══════════════════════════════════════════════════
+  // NÖBET TAKVİMİ
+  // ═══════════════════════════════════════════════════
+  void _nobetTakviminiAc() {
+    DateTime gorunenAy = DateTime(DateTime.now().year, DateTime.now().month, 1);
+
+    showDialog(context: context, builder: (ctx) {
+      return StatefulBuilder(builder: (ctx, setD) {
+        int yil = gorunenAy.year;
+        int ay = gorunenAy.month;
+        int gunSayisi = DateTime(yil, ay + 1, 0).day;
+        int ilkGunHafta = DateTime(yil, ay, 1).weekday; // 1=Pzt ... 7=Paz
+
+        List<String> ayIsimleri = ['', 'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+        List<String> gunIsimleri = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
+
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          title: Row(children: [
+            IconButton(
+              icon: const Icon(Icons.chevron_left, color: Colors.white70),
+              onPressed: () => setD(() => gorunenAy = DateTime(yil, ay - 1, 1)),
+            ),
+            Expanded(child: Center(child: Text(
+              '${ayIsimleri[ay]} $yil',
+              style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+            ))),
+            IconButton(
+              icon: const Icon(Icons.chevron_right, color: Colors.white70),
+              onPressed: () => setD(() => gorunenAy = DateTime(yil, ay + 1, 1)),
+            ),
+          ]),
+          content: SizedBox(
+            width: 500,
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              // Gün başlıkları
+              Row(children: gunIsimleri.map((g) => Expanded(
+                child: Center(child: Text(g, style: const TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold))),
+              )).toList()),
+              const SizedBox(height: 4),
+              // Takvim grid
+              ...List.generate(6, (haftaIdx) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 1),
+                  child: Row(children: List.generate(7, (gunIdx) {
+                    int hucreNo = haftaIdx * 7 + gunIdx + 1 - (ilkGunHafta - 1);
+                    if (hucreNo < 1 || hucreNo > gunSayisi) return Expanded(child: Container());
+
+                    DateTime tarih = DateTime(yil, ay, hucreNo);
+                    String gEkip = EkipVerisi.gunduzEkibi(tarih);
+                    String nEkip = EkipVerisi.geceEkibi(tarih);
+                    bool bugun = tarih.day == DateTime.now().day && tarih.month == DateTime.now().month && tarih.year == DateTime.now().year;
+                    bool gBizim = gEkip == _aktifEkip;
+                    bool nBizim = nEkip == _aktifEkip;
+
+                    return Expanded(child: Container(
+                      margin: const EdgeInsets.all(1),
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      decoration: BoxDecoration(
+                        color: bugun ? Colors.white.withOpacity(0.1) : Colors.transparent,
+                        borderRadius: BorderRadius.circular(6),
+                        border: bugun ? Border.all(color: Colors.orangeAccent, width: 1.5) : null,
+                      ),
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        Text(
+                          '$hucreNo',
+                          style: TextStyle(
+                            color: bugun ? Colors.orangeAccent : Colors.white70,
+                            fontSize: 11,
+                            fontWeight: bugun ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        // Gündüz
+                        Container(
+                          width: 30, height: 14,
+                          decoration: BoxDecoration(
+                            color: gBizim ? Colors.amber.withOpacity(0.3) : Colors.transparent,
+                            borderRadius: BorderRadius.circular(3),
+                            border: Border.all(color: gBizim ? Colors.amber : Colors.white12, width: 0.5),
+                          ),
+                          child: Center(child: Text(
+                            gEkip,
+                            style: TextStyle(
+                              color: gBizim ? Colors.amber : EkipVerisi.renkler[gEkip]!.withOpacity(0.6),
+                              fontSize: 8, fontWeight: FontWeight.bold,
+                            ),
+                          )),
+                        ),
+                        const SizedBox(height: 1),
+                        // Gece
+                        Container(
+                          width: 30, height: 14,
+                          decoration: BoxDecoration(
+                            color: nBizim ? Colors.lightBlueAccent.withOpacity(0.3) : Colors.transparent,
+                            borderRadius: BorderRadius.circular(3),
+                            border: Border.all(color: nBizim ? Colors.lightBlueAccent : Colors.white12, width: 0.5),
+                          ),
+                          child: Center(child: Text(
+                            nEkip,
+                            style: TextStyle(
+                              color: nBizim ? Colors.lightBlueAccent : EkipVerisi.renkler[nEkip]!.withOpacity(0.6),
+                              fontSize: 8, fontWeight: FontWeight.bold,
+                            ),
+                          )),
+                        ),
+                      ]),
+                    ));
+                  })),
+                );
+              }),
+              const SizedBox(height: 12),
+              // Lejant
+              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                Container(width: 12, height: 12, decoration: BoxDecoration(color: Colors.amber.withOpacity(0.3), border: Border.all(color: Colors.amber, width: 0.5), borderRadius: BorderRadius.circular(2))),
+                const SizedBox(width: 4),
+                const Text('Gündüz', style: TextStyle(color: Colors.amber, fontSize: 10)),
+                const SizedBox(width: 16),
+                Container(width: 12, height: 12, decoration: BoxDecoration(color: Colors.lightBlueAccent.withOpacity(0.3), border: Border.all(color: Colors.lightBlueAccent, width: 0.5), borderRadius: BorderRadius.circular(2))),
+                const SizedBox(width: 4),
+                const Text('Gece', style: TextStyle(color: Colors.lightBlueAccent, fontSize: 10)),
+              ]),
+            ]),
+          ),
+          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("KAPAT"))],
+        );
+      });
+    });
+  }
 
   void _notamEkraniAc() {
     bool modalLoading = false;
