@@ -3710,7 +3710,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
   Map<String, Map<String, String>> _takvimIzinler = {};
 
   static const Map<String, String> _izinTurleri = {
-    'Y': 'YILLIK', 'M': 'MAZERET', 'R': 'RAPOR', 'G': 'GOREV'
+    'Y': 'IZIN', 'M': 'MAZERET', 'R': 'RAPOR', 'G': 'GOREV'
   };
   static const Map<String, Color> _izinRenkleri = {
     'Y': Colors.redAccent, 'M': Colors.orangeAccent, 'R': Color(0xFF5C6BC0), 'G': Colors.tealAccent
