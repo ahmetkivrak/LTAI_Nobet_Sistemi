@@ -186,7 +186,7 @@ class _EkipSecimSayfasiState extends State<EkipSecimSayfasi> {
                   border: Border.all(color: Colors.orangeAccent.withOpacity(0.5), width: 2),
                   boxShadow: [BoxShadow(color: Colors.orangeAccent.withOpacity(0.15), blurRadius: 30, spreadRadius: 5)],
                 ),
-                child: const Icon(Icons.cell_tower, size: 56, color: Colors.orangeAccent),
+                child: ClipOval(child: Image.asset('assets/kule.png', width: 64, height: 64, fit: BoxFit.cover)),
               ),
               const SizedBox(height: 16),
               const Text(
