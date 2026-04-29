@@ -180,16 +180,18 @@ class _EkipSecimSayfasiState extends State<EkipSecimSayfasi> {
             children: [
               // Logo / Başlık
               Container(
-                padding: const EdgeInsets.all(20),
+                width: 160, height: 160,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(color: Colors.orangeAccent.withOpacity(0.5), width: 2),
                   boxShadow: [BoxShadow(color: Colors.orangeAccent.withOpacity(0.15), blurRadius: 30, spreadRadius: 5)],
                 ),
-                child: Image.asset('assets/kule.png', width: 140, height: 140),
+                child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  Image.asset('assets/kule.png', width: 80, height: 80),
+                  const SizedBox(height: 4),
+                  const Text('LTAI', style: TextStyle(color: Colors.orangeAccent, fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 4)),
+                ]),
               ),
-              const SizedBox(height: 14),
-              const Text('LTAI', style: TextStyle(color: Colors.orangeAccent, fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: 8)),
               const SizedBox(height: 36),
               Wrap(
                 spacing: 12,
