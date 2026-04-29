@@ -3867,7 +3867,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                           fontSize: 13, fontWeight: (bM || !off) ? FontWeight.bold : FontWeight.normal)),
                       // Gun adi
                       Text(gA[g.weekday - 1],
-                        style: TextStyle(color: bM ? Colors.orangeAccent.withOpacity(0.6) : Colors.white20, fontSize: 8)),
+                        style: TextStyle(color: bM ? Colors.orangeAccent.withOpacity(0.6) : Colors.white24, fontSize: 8)),
                     ]),
                   ),
                 ));
