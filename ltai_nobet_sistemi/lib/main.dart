@@ -180,13 +180,13 @@ class _EkipSecimSayfasiState extends State<EkipSecimSayfasi> {
             children: [
               // Logo / Başlık
               Container(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(28),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(color: Colors.orangeAccent.withOpacity(0.5), width: 2),
                   boxShadow: [BoxShadow(color: Colors.orangeAccent.withOpacity(0.15), blurRadius: 30, spreadRadius: 5)],
                 ),
-                child: Image.asset('assets/kule.png', width: 56, height: 56),
+                child: Image.asset('assets/kule.png', width: 110, height: 110),
               ),
               
               const SizedBox(height: 40),
