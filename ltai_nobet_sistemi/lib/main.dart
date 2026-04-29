@@ -3847,7 +3847,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                 ])),
                 actions: [
                   TextButton(onPressed: () => s2(() => sec.clear()),
-                    child: const Text('TEMIZLE', style: TextStyle(color: Colors.grey, fontSize: 11))),
+                    child: const Icon(Icons.delete_sweep, color: Colors.grey, size: 20)),
                   TextButton(onPressed: () {
                     if (sec.isEmpty) _takvimIzinler.remove(dKey); else _takvimIzinler[dKey] = sec;
                     _saveTakvimIzinler();
