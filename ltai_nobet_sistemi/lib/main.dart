@@ -3917,7 +3917,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
 
                 Widget izinChip(String k, String tur) {
                   Color c = _izinRenkleri[tur] ?? Colors.redAccent;
-                  return Padding(padding: const EdgeInsets.all(1), child: Text('$k', style: TextStyle(color: c, fontSize: 8, fontWeight: FontWeight.bold)));
+                  return Expanded(child: Center(child: Text(k, style: TextStyle(color: c, fontSize: 8, fontWeight: FontWeight.bold))));
                 }
 
                 return Padding(
@@ -3926,18 +3926,22 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                     Expanded(flex: 2, child: iz0.isEmpty ? const SizedBox() : Column(
                       children: [
                         for (int r = 0; r < (iz0.length / 3).ceil(); r++)
-                          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                          Row(children: [
                             for (var e in iz0.entries.toList().skip(r * 3).take(3))
                               izinChip(e.key, e.value),
+                            for (int p = 0; p < 3 - iz0.entries.toList().skip(r * 3).take(3).length; p++)
+                              const Expanded(child: SizedBox()),
                           ]),
                       ],
                     )),
                     Expanded(flex: 2, child: iz1.isEmpty ? const SizedBox() : Column(
                       children: [
                         for (int r = 0; r < (iz1.length / 3).ceil(); r++)
-                          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                          Row(children: [
                             for (var e in iz1.entries.toList().skip(r * 3).take(3))
                               izinChip(e.key, e.value),
+                            for (int p = 0; p < 3 - iz1.entries.toList().skip(r * 3).take(3).length; p++)
+                              const Expanded(child: SizedBox()),
                           ]),
                       ],
                     )),
