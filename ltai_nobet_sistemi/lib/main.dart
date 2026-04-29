@@ -3523,7 +3523,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                       _durumBtn(k, 'D', Colors.blue, setD, "D"), 
                       _durumBtn(k, 'E', Colors.blue, setD, "E"),
                     ],
-                    _durumBtn(k, 'OFF', Colors.redAccent, setD, "İZİN"), _durumBtn(k, 'KAZANDIŞI', Colors.grey, setD, "KAZANDIŞI"), 
                     if (isGunduzVardiyasi) _durumBtn(k, 'HAMAL', Colors.pinkAccent, setD, "KARINCA"), 
                     if (isGunduzVardiyasi) _durumBtn(k, 'ENSECİ', Colors.lightBlueAccent, setD, "AĞUSTOS BÖCEĞİ")
                   ]),
