@@ -739,8 +739,8 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     setState(() { 
       // Takvim izinlerini otomatik uygula
       String bugunKey = _tarihKey(DateTime.now());
-      Set<String> takvimIzinliler = _takvimIzinler[bugunKey] ?? {};
-      for (var k in takvimIzinliler) {
+      Map<String, String> takvimIzinliler = _takvimIzinler[bugunKey] ?? {};
+      for (var k in takvimIzinliler.keys) {
         if (tumPersonelHavuzu.contains(k) && !(gunlukDurum[k]?.contains('OFF') ?? false)) {
           gunlukDurum[k] = {'OFF'};
         }
@@ -3703,11 +3703,18 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     "🚧 MANİA/VİNÇ": [Colors.grey, 6],
   };
 
-  // ═══════════════════════════════════════════════════
-  // NÖBET TAKVİMİ + İZİN TAKİBİ
-  // ═══════════════════════════════════════════════════
-  // Tarih → izinli personel seti (key: "dd.MM.yyyy")
-  Map<String, Set<String>> _takvimIzinler = {};
+  // =============================================
+  // NOBET TAKVIMI + IZIN TAKIBI
+  // =============================================
+  // Tarih -> {kisi: tur} (tur: I=Izin, M=Mazeret, R=Rapor, G=Gorev)
+  Map<String, Map<String, String>> _takvimIzinler = {};
+
+  static const Map<String, String> _izinTurleri = {
+    'I': 'IZIN', 'M': 'MAZERET', 'R': 'RAPOR', 'G': 'GOREV'
+  };
+  static const Map<String, Color> _izinRenkleri = {
+    'I': Colors.redAccent, 'M': Colors.orangeAccent, 'R': Colors.purpleAccent, 'G': Colors.tealAccent
+  };
 
   String _tarihKey(DateTime d) => "${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year}";
 
@@ -3717,24 +3724,31 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     if (raw != null) {
       try {
         Map<String, dynamic> parsed = json.decode(raw);
-        _takvimIzinler = parsed.map((k, v) => MapEntry(k, Set<String>.from(v)));
+        _takvimIzinler = {};
+        parsed.forEach((k, v) {
+          if (v is Map) {
+            _takvimIzinler[k] = Map<String, String>.from(v);
+          } else if (v is List) {
+            // Eski format uyumlulugu (List -> hepsini 'I' yap)
+            _takvimIzinler[k] = {for (var name in v) name as String: 'I'};
+          }
+        });
       } catch (_) {}
     }
   }
 
   Future<void> _saveTakvimIzinler() async {
     final prefs = await SharedPreferences.getInstance();
-    Map<String, List<String>> toSave = _takvimIzinler.map((k, v) => MapEntry(k, v.toList()));
-    await prefs.setString('takvimIzin_$_aktifEkip', json.encode(toSave));
+    await prefs.setString('takvimIzin_$_aktifEkip', json.encode(_takvimIzinler));
   }
 
-  /// Takvimden bugünün izinlilerini borda uygula
+  /// Takvimden bugunun izinlilerini borda uygula
   void _takvimdenIzinUygula() {
     String bugunKey = _tarihKey(DateTime.now());
-    Set<String> izinliler = _takvimIzinler[bugunKey] ?? {};
+    Map<String, String> izinliler = _takvimIzinler[bugunKey] ?? {};
     if (izinliler.isEmpty) return;
     setState(() {
-      for (var k in izinliler) {
+      for (var k in izinliler.keys) {
         if (tumPersonelHavuzu.contains(k)) {
           gunlukDurum[k] = {'OFF'};
         }
@@ -3747,7 +3761,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     DateTime bugun = DateTime.now();
     int ekipIdx = EkipVerisi.rotasyon.indexOf(_aktifEkip);
     if (ekipIdx < 0) ekipIdx = 0;
-    // Gorunen ay
     DateTime gorunenAy = DateTime(bugun.year, bugun.month, 1);
 
     showDialog(context: context, builder: (ctx) {
@@ -3758,16 +3771,12 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
         int yil = gorunenAy.year;
         int ay = gorunenAy.month;
 
-        // Bu aydaki tum dongu baslangiclarini bul
-        // Ekibin gunduz referansindan hesapla
         DateTime ayBaslangic = DateTime(yil, ay, 1);
         DateTime aySonu = DateTime(yil, ay + 1, 0);
         int refOffset = ayBaslangic.difference(EkipVerisi.gunduzReferans).inDays;
         int fark = (refOffset - ekipIdx) % 5;
         if (fark < 0) fark += 5;
-        // Ilk dongu baslangici (aydan once olabilir)
         DateTime ilkDongu = ayBaslangic.subtract(Duration(days: fark));
-        // Eger ilkDongu aydan once ve dongunun hicbir gunu bu ayda degilse bir sonrakine git
         if (ilkDongu.add(const Duration(days: 4)).month != ay && ilkDongu.month != ay) {
           ilkDongu = ilkDongu.add(const Duration(days: 5));
         }
@@ -3776,40 +3785,73 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
         DateTime d = ilkDongu;
         while (d.isBefore(aySonu.add(const Duration(days: 1)))) {
           List<DateTime> dongu = List.generate(5, (j) => d.add(Duration(days: j)));
-          // En az bir gunu bu ayda mi?
-          if (dongu.any((g) => g.month == ay)) {
-            donguler.add(dongu);
-          }
+          if (dongu.any((g) => g.month == ay)) donguler.add(dongu);
           d = d.add(const Duration(days: 5));
         }
 
         void _gunIzinDuzenle(DateTime gun) {
           String dKey = _tarihKey(gun);
-          Set<String> sec = Set<String>.from(_takvimIzinler[dKey] ?? {});
+          Map<String, String> sec = Map<String, String>.from(_takvimIzinler[dKey] ?? {});
           showDialog(context: ctx, builder: (c2) {
             return StatefulBuilder(builder: (c2, s2) {
               return AlertDialog(
                 backgroundColor: const Color(0xFF222222),
                 title: Text('${gun.day}.${gun.month.toString().padLeft(2, '0')} ${gA[gun.weekday - 1]}',
                   style: const TextStyle(color: Colors.white, fontSize: 14)),
-                content: SizedBox(width: 300, child: Wrap(spacing: 6, runSpacing: 6,
-                  children: tumPersonelHavuzu.map((k) {
-                    bool izn = sec.contains(k);
-                    return GestureDetector(
-                      onTap: () => s2(() { if (izn) sec.remove(k); else sec.add(k); }),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: izn ? Colors.redAccent.withOpacity(0.25) : Colors.white.withOpacity(0.05),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: izn ? Colors.redAccent : Colors.white24),
+                content: SizedBox(width: 340, child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  // Tur secim lejanti
+                  Padding(padding: const EdgeInsets.only(bottom: 10), child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: _izinTurleri.entries.map((e) => Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      child: Row(children: [
+                        Container(width: 8, height: 8, decoration: BoxDecoration(
+                          color: _izinRenkleri[e.key], borderRadius: BorderRadius.circular(2))),
+                        const SizedBox(width: 3),
+                        Text(e.value, style: TextStyle(color: _izinRenkleri[e.key], fontSize: 8, fontWeight: FontWeight.bold)),
+                      ]),
+                    )).toList(),
+                  )),
+                  // Personel listesi
+                  Wrap(spacing: 5, runSpacing: 5,
+                    children: tumPersonelHavuzu.map((k) {
+                      String? tur = sec[k]; // null = aktif, 'I','M','R','G'
+                      bool izinli = tur != null;
+                      Color renk = izinli ? (_izinRenkleri[tur] ?? Colors.redAccent) : Colors.white70;
+                      return GestureDetector(
+                        onTap: () => s2(() {
+                          // Cycle: null -> I -> M -> R -> G -> null
+                          List<String> sira = ['I', 'M', 'R', 'G'];
+                          if (tur == null) {
+                            sec[k] = 'I';
+                          } else {
+                            int idx = sira.indexOf(tur);
+                            if (idx < sira.length - 1) {
+                              sec[k] = sira[idx + 1];
+                            } else {
+                              sec.remove(k);
+                            }
+                          }
+                        }),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: izinli ? renk.withOpacity(0.2) : Colors.white.withOpacity(0.05),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: izinli ? renk : Colors.white24, width: izinli ? 1.5 : 0.5),
+                          ),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            Text(k, style: TextStyle(color: renk, fontWeight: izinli ? FontWeight.bold : FontWeight.normal, fontSize: 12)),
+                            if (izinli) ...[
+                              const SizedBox(width: 3),
+                              Text(tur!, style: TextStyle(color: renk.withOpacity(0.7), fontSize: 8, fontWeight: FontWeight.bold)),
+                            ],
+                          ]),
                         ),
-                        child: Text(k, style: TextStyle(color: izn ? Colors.redAccent : Colors.white70,
-                          fontWeight: izn ? FontWeight.bold : FontWeight.normal, fontSize: 13)),
-                      ),
-                    );
-                  }).toList(),
-                )),
+                      );
+                    }).toList(),
+                  ),
+                ])),
                 actions: [
                   TextButton(onPressed: () => s2(() => sec.clear()),
                     child: const Text('TEMIZLE', style: TextStyle(color: Colors.grey, fontSize: 11))),
@@ -3826,7 +3868,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
         }
 
         Widget donguSatiri(List<DateTime> gunler) {
-          // gunler[0]=gunduz, gunler[1]=gece, gunler[2-4]=off
           return Container(
             margin: const EdgeInsets.only(bottom: 6),
             padding: const EdgeInsets.all(6),
@@ -3854,56 +3895,42 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                       border: bM ? Border.all(color: Colors.orangeAccent, width: 1.5) : null,
                     ),
                     child: Column(children: [
-                      // Renk cubugu
                       Container(width: 20, height: 3, margin: const EdgeInsets.only(bottom: 3),
                         decoration: BoxDecoration(
                           color: solRenk ?? Colors.white.withOpacity(0.06),
                           borderRadius: BorderRadius.circular(2))),
-                      // Gun numarasi
                       Text('${g.day}',
                         style: TextStyle(
                           color: bM ? Colors.orangeAccent : (buAyda ? (off ? Colors.white30 : Colors.white70) : Colors.white12),
                           fontSize: 13, fontWeight: (bM || !off) ? FontWeight.bold : FontWeight.normal)),
-                      // Gun adi
                       Text(gA[g.weekday - 1],
                         style: TextStyle(color: bM ? Colors.orangeAccent.withOpacity(0.6) : Colors.white24, fontSize: 8)),
                     ]),
                   ),
                 ));
               })),
-              // Alt kisim: gunduz ve gece altinda izinliler (ilk 2 sutun genisliginde)
+              // Alt kisim: izinliler
               Builder(builder: (context) {
-                String key0 = _tarihKey(gunler[0]);
-                String key1 = _tarihKey(gunler[1]);
-                Set<String> iz0 = _takvimIzinler[key0] ?? {};
-                Set<String> iz1 = _takvimIzinler[key1] ?? {};
+                Map<String, String> iz0 = _takvimIzinler[_tarihKey(gunler[0])] ?? {};
+                Map<String, String> iz1 = _takvimIzinler[_tarihKey(gunler[1])] ?? {};
                 if (iz0.isEmpty && iz1.isEmpty) return const SizedBox();
 
-                // Her sutunu 3+3 yerlestir (2 kolon, 3 satir)
-                List<String> list0 = iz0.toList();
-                List<String> list1 = iz1.toList();
-                int maxSatir = [((list0.length + 1) ~/ 2), ((list1.length + 1) ~/ 2), 1].reduce((a, b) => a > b ? a : b);
+                Widget izinChip(String k, String tur) {
+                  Color c = _izinRenkleri[tur] ?? Colors.redAccent;
+                  return Padding(padding: const EdgeInsets.all(1), child: Text('$k', style: TextStyle(color: c, fontSize: 8, fontWeight: FontWeight.bold)));
+                }
 
                 return Padding(
                   padding: const EdgeInsets.only(top: 2),
                   child: Row(children: [
-                    // Gunduz izinlileri (2/5 genislik)
                     Expanded(flex: 2, child: iz0.isEmpty ? const SizedBox() : Wrap(
-                      spacing: 2, runSpacing: 1, alignment: WrapAlignment.center,
-                      children: list0.map((k) => Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
-                        child: Text(k, style: const TextStyle(color: Colors.redAccent, fontSize: 8, fontWeight: FontWeight.bold)),
-                      )).toList(),
+                      spacing: 2, runSpacing: 0, alignment: WrapAlignment.center,
+                      children: iz0.entries.map((e) => izinChip(e.key, e.value)).toList(),
                     )),
-                    // Gece izinlileri (2/5 genislik)
                     Expanded(flex: 2, child: iz1.isEmpty ? const SizedBox() : Wrap(
-                      spacing: 2, runSpacing: 1, alignment: WrapAlignment.center,
-                      children: list1.map((k) => Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
-                        child: Text(k, style: const TextStyle(color: Colors.redAccent, fontSize: 8, fontWeight: FontWeight.bold)),
-                      )).toList(),
+                      spacing: 2, runSpacing: 0, alignment: WrapAlignment.center,
+                      children: iz1.entries.map((e) => izinChip(e.key, e.value)).toList(),
                     )),
-                    // Off gunleri bos (3/5 genislik)
                     const Expanded(flex: 3, child: SizedBox()),
                   ]),
                 );
@@ -3912,7 +3939,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
           );
         }
 
-        // Donguleri 2 sutuna bol (sol ve sag)
         int yarisi = (donguler.length + 1) ~/ 2;
         List<List<DateTime>> sol = donguler.sublist(0, yarisi.clamp(0, donguler.length));
         List<List<DateTime>> sag = donguler.sublist(yarisi.clamp(0, donguler.length));
