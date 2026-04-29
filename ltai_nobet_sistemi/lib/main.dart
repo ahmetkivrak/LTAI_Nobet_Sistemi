@@ -3770,23 +3770,16 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
 
         int yil = gorunenAy.year;
         int ay = gorunenAy.month;
+        int gunSayisi = DateTime(yil, ay + 1, 0).day;
+        int ilkGunHafta = DateTime(yil, ay, 1).weekday; // 1=Pzt
 
-        DateTime ayBaslangic = DateTime(yil, ay, 1);
-        DateTime aySonu = DateTime(yil, ay + 1, 0);
-        int refOffset = ayBaslangic.difference(EkipVerisi.gunduzReferans).inDays;
-        int fark = (refOffset - ekipIdx) % 5;
-        if (fark < 0) fark += 5;
-        DateTime ilkDongu = ayBaslangic.subtract(Duration(days: fark));
-        if (ilkDongu.add(const Duration(days: 4)).month != ay && ilkDongu.month != ay) {
-          ilkDongu = ilkDongu.add(const Duration(days: 5));
-        }
-
-        List<List<DateTime>> donguler = [];
-        DateTime d = ilkDongu;
-        while (d.isBefore(aySonu.add(const Duration(days: 1)))) {
-          List<DateTime> dongu = List.generate(5, (j) => d.add(Duration(days: j)));
-          if (dongu.any((g) => g.month == ay)) donguler.add(dongu);
-          d = d.add(const Duration(days: 5));
+        // Ekibin bu gundeki rolu
+        Color? gunRengi(DateTime tarih) {
+          String gE = EkipVerisi.gunduzEkibi(tarih);
+          String nE = EkipVerisi.geceEkibi(tarih);
+          if (gE == _aktifEkip) return Colors.amber;
+          if (nE == _aktifEkip) return Colors.lightBlueAccent;
+          return null; // OFF
         }
 
         void _gunIzinDuzenle(DateTime gun) {
@@ -3799,7 +3792,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                 title: Text('${gun.day}.${gun.month.toString().padLeft(2, '0')} ${gA[gun.weekday - 1]}',
                   style: const TextStyle(color: Colors.white, fontSize: 14)),
                 content: SizedBox(width: 340, child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  // Tur secim lejanti
                   Padding(padding: const EdgeInsets.only(bottom: 10), child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: _izinTurleri.entries.map((e) => Padding(
@@ -3812,26 +3804,16 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                       ]),
                     )).toList(),
                   )),
-                  // Personel listesi
                   Wrap(spacing: 5, runSpacing: 5,
                     children: tumPersonelHavuzu.map((k) {
-                      String? tur = sec[k]; // null = aktif, 'I','M','R','G'
+                      String? tur = sec[k];
                       bool izinli = tur != null;
                       Color renk = izinli ? (_izinRenkleri[tur] ?? Colors.redAccent) : Colors.white70;
                       return GestureDetector(
                         onTap: () => s2(() {
-                          // Cycle: null -> I -> M -> R -> G -> null
                           List<String> sira = ['Y', 'M', 'R', 'G'];
-                          if (tur == null) {
-                            sec[k] = 'Y';
-                          } else {
-                            int idx = sira.indexOf(tur);
-                            if (idx < sira.length - 1) {
-                              sec[k] = sira[idx + 1];
-                            } else {
-                              sec.remove(k);
-                            }
-                          }
+                          if (tur == null) { sec[k] = 'Y'; }
+                          else { int idx = sira.indexOf(tur); if (idx < sira.length - 1) sec[k] = sira[idx + 1]; else sec.remove(k); }
                         }),
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
@@ -3842,10 +3824,8 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                           ),
                           child: Row(mainAxisSize: MainAxisSize.min, children: [
                             Text(k, style: TextStyle(color: renk, fontWeight: izinli ? FontWeight.bold : FontWeight.normal, fontSize: 12)),
-                            if (izinli) ...[
-                              const SizedBox(width: 3),
-                              Text(tur!, style: TextStyle(color: renk.withOpacity(0.7), fontSize: 8, fontWeight: FontWeight.bold)),
-                            ],
+                            if (izinli) ...[const SizedBox(width: 3),
+                              Text(tur!, style: TextStyle(color: renk.withOpacity(0.7), fontSize: 8, fontWeight: FontWeight.bold))],
                           ]),
                         ),
                       );
@@ -3867,96 +3847,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
           });
         }
 
-        Widget donguSatiri(List<DateTime> gunler) {
-          return Container(
-            margin: const EdgeInsets.only(bottom: 6),
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.02),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Column(children: [
-              // Ust satir: 5 gun yan yana
-              Row(children: List.generate(5, (idx) {
-                DateTime g = gunler[idx];
-                bool bM = g.day == bugun.day && g.month == bugun.month && g.year == bugun.year;
-                bool buAyda = g.month == ay;
-                bool off = idx >= 2;
-                Color? solRenk = idx == 0 ? Colors.amber : (idx == 1 ? Colors.lightBlueAccent : null);
-
-                return Expanded(child: GestureDetector(
-                  onTap: () => _gunIzinDuzenle(g),
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 1),
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    decoration: BoxDecoration(
-                      color: bM ? Colors.orangeAccent.withOpacity(0.12) : Colors.transparent,
-                      borderRadius: BorderRadius.circular(4),
-                      border: bM ? Border.all(color: Colors.orangeAccent, width: 1.5) : null,
-                    ),
-                    child: Column(children: [
-                      Container(width: 20, height: 3, margin: const EdgeInsets.only(bottom: 3),
-                        decoration: BoxDecoration(
-                          color: solRenk ?? Colors.white.withOpacity(0.06),
-                          borderRadius: BorderRadius.circular(2))),
-                      Text('${g.day}',
-                        style: TextStyle(
-                          color: bM ? Colors.orangeAccent : (buAyda ? (off ? Colors.white30 : Colors.white70) : Colors.white12),
-                          fontSize: 13, fontWeight: (bM || !off) ? FontWeight.bold : FontWeight.normal)),
-                      Text(gA[g.weekday - 1],
-                        style: TextStyle(color: bM ? Colors.orangeAccent.withOpacity(0.6) : Colors.white24, fontSize: 8)),
-                    ]),
-                  ),
-                ));
-              })),
-              // Alt kisim: izinliler
-              Builder(builder: (context) {
-                Map<String, String> iz0 = _takvimIzinler[_tarihKey(gunler[0])] ?? {};
-                Map<String, String> iz1 = _takvimIzinler[_tarihKey(gunler[1])] ?? {};
-                if (iz0.isEmpty && iz1.isEmpty) return const SizedBox();
-
-                Widget izinChip(String k, String tur) {
-                  Color c = _izinRenkleri[tur] ?? Colors.redAccent;
-                  return Expanded(child: Center(child: Text(k, style: TextStyle(color: c, fontSize: 8, fontWeight: FontWeight.bold))));
-                }
-
-                return Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Row(children: [
-                    Expanded(flex: 2, child: iz0.isEmpty ? const SizedBox() : Column(
-                      children: [
-                        for (int r = 0; r < (iz0.length / 3).ceil(); r++)
-                          Row(children: [
-                            for (var e in iz0.entries.toList().skip(r * 3).take(3))
-                              izinChip(e.key, e.value),
-                            for (int p = 0; p < 3 - iz0.entries.toList().skip(r * 3).take(3).length; p++)
-                              const Expanded(child: SizedBox()),
-                          ]),
-                      ],
-                    )),
-                    Expanded(flex: 2, child: iz1.isEmpty ? const SizedBox() : Column(
-                      children: [
-                        for (int r = 0; r < (iz1.length / 3).ceil(); r++)
-                          Row(children: [
-                            for (var e in iz1.entries.toList().skip(r * 3).take(3))
-                              izinChip(e.key, e.value),
-                            for (int p = 0; p < 3 - iz1.entries.toList().skip(r * 3).take(3).length; p++)
-                              const Expanded(child: SizedBox()),
-                          ]),
-                      ],
-                    )),
-                    const Expanded(flex: 3, child: SizedBox()),
-                  ]),
-                );
-              }),
-            ]),
-          );
-        }
-
-        int yarisi = (donguler.length + 1) ~/ 2;
-        List<List<DateTime>> sol = donguler.sublist(0, yarisi.clamp(0, donguler.length));
-        List<List<DateTime>> sag = donguler.sublist(yarisi.clamp(0, donguler.length));
-
         return AlertDialog(
           backgroundColor: const Color(0xFF1A1A1A),
           titlePadding: const EdgeInsets.fromLTRB(8, 8, 4, 0),
@@ -3972,13 +3862,93 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
           ]),
           contentPadding: const EdgeInsets.fromLTRB(10, 4, 10, 8),
           content: SizedBox(
-            width: 700,
-            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Expanded(child: Column(mainAxisSize: MainAxisSize.min,
-                children: sol.map((d) => donguSatiri(d)).toList())),
-              const SizedBox(width: 6),
-              Expanded(child: Column(mainAxisSize: MainAxisSize.min,
-                children: sag.map((d) => donguSatiri(d)).toList())),
+            width: 620,
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              // Gun basliklari
+              Row(children: gA.map((g) => Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Center(child: Text(g, style: const TextStyle(color: Colors.white38, fontSize: 9, fontWeight: FontWeight.bold))),
+                ),
+              )).toList()),
+              const Divider(color: Colors.white12, height: 1),
+              // Haftalik grid
+              ...List.generate(6, (haftaIdx) {
+                // Bu haftada gosterilecek gun var mi kontrol
+                bool haftaGecerli = false;
+                for (int gunIdx = 0; gunIdx < 7; gunIdx++) {
+                  int hucreNo = haftaIdx * 7 + gunIdx + 1 - (ilkGunHafta - 1);
+                  if (hucreNo >= 1 && hucreNo <= gunSayisi) { haftaGecerli = true; break; }
+                }
+                if (!haftaGecerli) return const SizedBox();
+
+                return Container(
+                  decoration: BoxDecoration(
+                    border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.04))),
+                  ),
+                  child: IntrinsicHeight(
+                    child: Row(children: List.generate(7, (gunIdx) {
+                      int hucreNo = haftaIdx * 7 + gunIdx + 1 - (ilkGunHafta - 1);
+                      if (hucreNo < 1 || hucreNo > gunSayisi) {
+                        return Expanded(child: Container(
+                          decoration: BoxDecoration(
+                            border: Border(
+                              right: gunIdx < 6 ? BorderSide(color: Colors.white.withOpacity(0.04)) : BorderSide.none,
+                            ),
+                          ),
+                        ));
+                      }
+
+                      DateTime tarih = DateTime(yil, ay, hucreNo);
+                      bool bugunMu = tarih.day == bugun.day && tarih.month == bugun.month && tarih.year == bugun.year;
+                      Color? renk = gunRengi(tarih);
+                      bool off = renk == null;
+                      String key = _tarihKey(tarih);
+                      Map<String, String> izinliler = _takvimIzinler[key] ?? {};
+
+                      return Expanded(child: GestureDetector(
+                        onTap: () => _gunIzinDuzenle(tarih),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 2),
+                          decoration: BoxDecoration(
+                            color: bugunMu ? Colors.orangeAccent.withOpacity(0.1) : Colors.transparent,
+                            border: Border(
+                              right: gunIdx < 6 ? BorderSide(color: Colors.white.withOpacity(0.04)) : BorderSide.none,
+                              top: bugunMu ? const BorderSide(color: Colors.orangeAccent, width: 2) : BorderSide.none,
+                            ),
+                          ),
+                          child: Column(mainAxisSize: MainAxisSize.min, children: [
+                            // Renk cubugu
+                            Container(width: 24, height: 3, margin: const EdgeInsets.only(bottom: 2),
+                              decoration: BoxDecoration(
+                                color: renk ?? Colors.white.withOpacity(0.06),
+                                borderRadius: BorderRadius.circular(2))),
+                            // Gun numarasi
+                            Text('$hucreNo',
+                              style: TextStyle(
+                                color: bugunMu ? Colors.orangeAccent : (off ? Colors.white24 : Colors.white70),
+                                fontSize: 12, fontWeight: (bugunMu || !off) ? FontWeight.bold : FontWeight.normal)),
+                            // Izinliler - 3 sutun grid
+                            if (izinliler.isNotEmpty) ...[
+                              const SizedBox(height: 2),
+                              ...List.generate((izinliler.length / 3).ceil(), (r) {
+                                List<MapEntry<String, String>> satirKisiler = izinliler.entries.toList().skip(r * 3).take(3).toList();
+                                return Row(children: [
+                                  for (var e in satirKisiler)
+                                    Expanded(child: Center(child: Text(e.key,
+                                      style: TextStyle(color: _izinRenkleri[e.value] ?? Colors.redAccent, fontSize: 7, fontWeight: FontWeight.bold)))),
+                                  for (int p = 0; p < 3 - satirKisiler.length; p++)
+                                    const Expanded(child: SizedBox()),
+                                ]);
+                              }),
+                            ],
+                          ]),
+                        ),
+                      ));
+                    })),
+                  ),
+                );
+              }),
             ]),
           ),
           actions: const [],
