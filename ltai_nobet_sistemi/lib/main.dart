@@ -83,6 +83,227 @@ class PersonelKarnesi {
   double get gunduzGecGirisOrani => gunduzGorev > 0 ? gunduzToplamSlotIndeksi / gunduzGorev : 0;
 }
 
+// ═══════════════════════════════════════════════════
+// EKİP VERİLERİ
+// ═══════════════════════════════════════════════════
+class EkipVerisi {
+  static const Map<String, List<String>> kadro = {
+    'A': ['IU', 'OK', 'OZ', 'GB', 'MS', 'RI', 'II', 'AL', 'IK', 'OG', 'TY', 'MB', 'EE', 'FU'],
+    'B': ['EA', 'BK', 'FK', 'NO', 'BC', 'FI', 'IB', 'BB', 'EP', 'FD', 'AS', 'AR', 'ZH'],
+    'C': ['OO', 'AV', 'AY', 'AT', 'BS', 'UY', 'SG', 'HU', 'UE', 'BN', 'NA', 'ME'],
+    'D': ['GP', 'AI', 'AK', 'BE', 'MK', 'AN', 'BA', 'BL', 'DE', 'MI', 'FL', 'YT', 'GI', 'AP', 'DO'],
+    'E': ['EL', 'HB', 'SE', 'EK', 'IA', 'RC', 'IG', 'KU', 'HM', 'YZ'],
+  };
+
+  static const Map<String, String> sifreler = {
+    'A': 'a2026',
+    'B': 'b2026',
+    'C': 'c2026',
+    'D': 'd2026',
+    'E': 'e2026',
+  };
+
+  static const Map<String, Color> renkler = {
+    'A': Color(0xFF4CAF50),
+    'B': Color(0xFF2196F3),
+    'C': Color(0xFFFF9800),
+    'D': Color(0xFFE91E63),
+    'E': Color(0xFF9C27B0),
+  };
+}
+
+// ═══════════════════════════════════════════════════
+// EKİP SEÇİM SAYFASI
+// ═══════════════════════════════════════════════════
+class EkipSecimSayfasi extends StatefulWidget {
+  const EkipSecimSayfasi({super.key});
+  @override
+  State<EkipSecimSayfasi> createState() => _EkipSecimSayfasiState();
+}
+
+class _EkipSecimSayfasiState extends State<EkipSecimSayfasi> {
+  String? _secilenEkip;
+  final TextEditingController _sifreController = TextEditingController();
+  String _hata = '';
+
+  void _ekipSec(String ekip) {
+    setState(() {
+      _secilenEkip = ekip;
+      _sifreController.clear();
+      _hata = '';
+    });
+  }
+
+  void _girisYap() {
+    if (_secilenEkip == null) return;
+    String sifre = _sifreController.text.trim();
+    if (sifre == EkipVerisi.sifreler[_secilenEkip]) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => AnaSayfa(ekip: _secilenEkip!)),
+      );
+    } else {
+      setState(() => _hata = 'Şifre yanlış');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0A0A0A),
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Logo / Başlık
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.orangeAccent.withOpacity(0.5), width: 2),
+                  boxShadow: [BoxShadow(color: Colors.orangeAccent.withOpacity(0.15), blurRadius: 30, spreadRadius: 5)],
+                ),
+                child: const Text('✈', style: TextStyle(fontSize: 48)),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'LTAI KULE',
+                style: TextStyle(color: Colors.orangeAccent, fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: 6),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Nöbet Planlama Sistemi',
+                style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 13, letterSpacing: 2),
+              ),
+              const SizedBox(height: 40),
+
+              // Ekip Butonları
+              const Text('EKİP SEÇ', style: TextStyle(color: Colors.white54, fontSize: 11, letterSpacing: 3)),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                alignment: WrapAlignment.center,
+                children: ['A', 'B', 'C', 'D', 'E'].map((ekip) {
+                  bool secili = _secilenEkip == ekip;
+                  Color renk = EkipVerisi.renkler[ekip]!;
+                  return GestureDetector(
+                    onTap: () => _ekipSec(ekip),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: 72,
+                      height: 72,
+                      decoration: BoxDecoration(
+                        color: secili ? renk.withOpacity(0.2) : Colors.transparent,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: secili ? renk : renk.withOpacity(0.3),
+                          width: secili ? 2.5 : 1,
+                        ),
+                        boxShadow: secili
+                            ? [BoxShadow(color: renk.withOpacity(0.3), blurRadius: 12, spreadRadius: 2)]
+                            : null,
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            ekip,
+                            style: TextStyle(
+                              color: secili ? renk : renk.withOpacity(0.7),
+                              fontSize: 28,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          Text(
+                            '${EkipVerisi.kadro[ekip]!.length} kişi',
+                            style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 9),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+
+              // Şifre Alanı (ekip seçilince görünür)
+              if (_secilenEkip != null) ...[
+                const SizedBox(height: 32),
+                Container(
+                  width: 280,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: EkipVerisi.renkler[_secilenEkip]!.withOpacity(0.3)),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        '$_secilenEkip Ekibi Girişi',
+                        style: TextStyle(
+                          color: EkipVerisi.renkler[_secilenEkip]!,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _sifreController,
+                        obscureText: true,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Colors.white, fontSize: 16, letterSpacing: 4),
+                        decoration: InputDecoration(
+                          hintText: 'Şifre',
+                          hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+                          filled: true,
+                          fillColor: Colors.black26,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        onSubmitted: (_) => _girisYap(),
+                      ),
+                      if (_hata.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text(_hata, style: const TextStyle(color: Colors.redAccent, fontSize: 12)),
+                      ],
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: _girisYap,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: EkipVerisi.renkler[_secilenEkip]!,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          child: const Text('GİRİŞ', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 2)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
+              const SizedBox(height: 40),
+              Text(
+                'v2.4.0',
+                style: TextStyle(color: Colors.white.withOpacity(0.2), fontSize: 10),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class LtaiApp extends StatelessWidget {
   const LtaiApp({super.key});
   @override
@@ -93,13 +314,14 @@ class LtaiApp extends StatelessWidget {
         scaffoldBackgroundColor: const Color(0xFF111111),
         primaryColor: Colors.orangeAccent,
       ),
-      home: const AnaSayfa(),
+      home: const EkipSecimSayfasi(),
     );
   }
 }
 
 class AnaSayfa extends StatefulWidget {
-  const AnaSayfa({super.key});
+  final String ekip;
+  const AnaSayfa({super.key, required this.ekip});
   @override
   State<AnaSayfa> createState() => _AnaSayfaState();
 }
@@ -143,7 +365,8 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
   
   final String gasUrl = "https://script.google.com/macros/s/AKfycbwbwRw2XQTpnX9MgN4zJM6QDUg5JX_q4mqJ84B_ODPmkZAM00eDA4iUHDOuVzcPNIfr4A/exec";
 
-  final List<String> tumPersonelHavuzu = ["GP", "AI", "AK", "BE", "MK", "AN", "BA", "BL", "DE", "MI", "FL", "YT", "GI", "AP", "DO"];
+  late List<String> tumPersonelHavuzu;
+  late final String _aktifEkip;
   
   Map<String, Set<String>> _gunlukDurumGunduz = {};
   Map<String, Set<String>> _gunlukDurumGece = {};
@@ -243,6 +466,8 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
   @override
   void initState() {
     super.initState();
+    _aktifEkip = widget.ekip;
+    tumPersonelHavuzu = List<String>.from(EkipVerisi.kadro[_aktifEkip] ?? []);
     _tabController = TabController(length: 2, vsync: this);
     for (var k in tumPersonelHavuzu) {
       _gunlukDurumGunduz[k] = {'A'};
@@ -3362,15 +3587,17 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
   static const String _personelVersion = 'v2'; // Versiyon değişince önbellekteki eski liste göz ardı edilir
   Future<void> _loadPersonelPrefs() async {
     final prefs = await SharedPreferences.getInstance();
+    String vKey = 'savedPersonelVersion_$_aktifEkip';
+    String pKey = 'savedPersonel_$_aktifEkip';
     // Versiyon kontrolu: eski önbellekte farklı versiyon varsa personeli kod listesiyle başlat
-    String savedVersion = prefs.getString('savedPersonelVersion') ?? '';
+    String savedVersion = prefs.getString(vKey) ?? '';
     if (savedVersion != _personelVersion) {
       // Önbellek versiyonu eski — ilk kayda zorla (kod listesindeki varsayılanı kaydet)
-      await prefs.setString('savedPersonelVersion', _personelVersion);
-      await prefs.setString('savedPersonel', json.encode(tumPersonelHavuzu));
-      return; // Kod listesindeki varsayılan listeyi kullan (DO var)
+      await prefs.setString(vKey, _personelVersion);
+      await prefs.setString(pKey, json.encode(tumPersonelHavuzu));
+      return; // Kod listesindeki varsayılan listeyi kullan
     }
-    String? pJson = prefs.getString('savedPersonel');
+    String? pJson = prefs.getString(pKey);
     if (pJson != null) {
       try {
         List<dynamic> saved = json.decode(pJson);
@@ -3391,7 +3618,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
 
   Future<void> _savePersonelPrefs() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('savedPersonel', json.encode(tumPersonelHavuzu));
+    await prefs.setString('savedPersonel_$_aktifEkip', json.encode(tumPersonelHavuzu));
   }
 
   // ── Rozet Kalıcılığı (SharedPreferences) ──
