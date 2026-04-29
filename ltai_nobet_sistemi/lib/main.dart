@@ -3736,227 +3736,217 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
   }
 
   void _nobetTakviminiAc() {
-    DateTime gorunenAy = DateTime(DateTime.now().year, DateTime.now().month, 1);
+    // Ekibin gündüz referans tarihinden başlayarak döngü başlangıcını bul
+    DateTime bugun = DateTime.now();
+    int todayOffset = bugun.difference(EkipVerisi.gunduzReferans).inDays;
+    int ekipIdx = EkipVerisi.rotasyon.indexOf(_aktifEkip);
+    if (ekipIdx < 0) ekipIdx = 0;
+
+    // Bu ekibin en yakın geçmiş gündüz gününü bul
+    // Ekibin gündüz günleri: referans + ekipIdx + 5*n
+    int fark = (todayOffset - ekipIdx) % 5;
+    if (fark < 0) fark += 5;
+    DateTime baslangic = bugun.subtract(Duration(days: fark));
+
+    // Kaydırma offset'i (her seferde 5 döngü = 25 gün)
+    int sayfa = 0;
 
     showDialog(context: context, builder: (ctx) {
       return StatefulBuilder(builder: (ctx, setD) {
-        int yil = gorunenAy.year;
-        int ay = gorunenAy.month;
-        int gunSayisi = DateTime(yil, ay + 1, 0).day;
-        int ilkGunHafta = DateTime(yil, ay, 1).weekday;
+        List<String> gunAdlari = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
+        List<String> ayAdlari = ['', 'Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
 
-        List<String> ayIsimleri = ['', 'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
-        List<String> gunIsimleri = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
+        // 6 döngü göster (2 sütun × 3 döngü)
+        DateTime sayfaBaslangic = baslangic.add(Duration(days: sayfa * 30));
+        List<List<DateTime>> donguler = [];
+        for (int i = 0; i < 6; i++) {
+          DateTime donguBaslangic = sayfaBaslangic.add(Duration(days: i * 5));
+          donguler.add(List.generate(5, (j) => donguBaslangic.add(Duration(days: j))));
+        }
 
-        void _gunIzinDuzenle(DateTime tarih) {
-          String key = _tarihKey(tarih);
-          Set<String> secili = Set<String>.from(_takvimIzinler[key] ?? {});
+        Widget donguWidget(List<DateTime> gunler) {
+          List<String> etiketler = ['☀️  GÜNDÜZ', '🌙  GECE', '', '', ''];
+          List<Color> renkler = [Colors.amber, Colors.lightBlueAccent, Colors.white24, Colors.white24, Colors.white24];
 
-          showDialog(context: ctx, builder: (ctx2) {
-            return StatefulBuilder(builder: (ctx2, setD2) {
-              return AlertDialog(
-                backgroundColor: const Color(0xFF222222),
-                title: Text(
-                  '${tarih.day} ${ayIsimleri[tarih.month]} ${tarih.year} — İzinliler',
-                  style: const TextStyle(color: Colors.white, fontSize: 14),
-                ),
-                content: SizedBox(
-                  width: 300,
-                  child: Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: tumPersonelHavuzu.map((k) {
-                      bool izinli = secili.contains(k);
-                      return GestureDetector(
-                        onTap: () => setD2(() {
-                          if (izinli) secili.remove(k); else secili.add(k);
-                        }),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: izinli ? Colors.redAccent.withOpacity(0.25) : Colors.white.withOpacity(0.05),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: izinli ? Colors.redAccent : Colors.white24),
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.03),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.white.withOpacity(0.06)),
+            ),
+            child: Column(
+              children: List.generate(5, (idx) {
+                DateTime gun = gunler[idx];
+                bool bugunMu = gun.day == bugun.day && gun.month == bugun.month && gun.year == bugun.year;
+                String key = _tarihKey(gun);
+                Set<String> izinliler = _takvimIzinler[key] ?? {};
+                bool isOff = idx >= 2;
+                String etiket = isOff ? 'OFF' : etiketler[idx];
+
+                return GestureDetector(
+                  onTap: () {
+                    // İzin düzenleme
+                    String dKey = _tarihKey(gun);
+                    Set<String> secili = Set<String>.from(_takvimIzinler[dKey] ?? {});
+                    showDialog(context: ctx, builder: (ctx2) {
+                      return StatefulBuilder(builder: (ctx2, setD2) {
+                        return AlertDialog(
+                          backgroundColor: const Color(0xFF222222),
+                          title: Text(
+                            '${gun.day} ${ayAdlari[gun.month]} ${gun.year} ${gunAdlari[gun.weekday - 1]} — İzinliler',
+                            style: const TextStyle(color: Colors.white, fontSize: 14),
                           ),
-                          child: Text(
-                            k,
-                            style: TextStyle(
-                              color: izinli ? Colors.redAccent : Colors.white70,
-                              fontWeight: izinli ? FontWeight.bold : FontWeight.normal,
-                              fontSize: 13,
+                          content: SizedBox(
+                            width: 300,
+                            child: Wrap(
+                              spacing: 6, runSpacing: 6,
+                              children: tumPersonelHavuzu.map((k) {
+                                bool izinli = secili.contains(k);
+                                return GestureDetector(
+                                  onTap: () => setD2(() {
+                                    if (izinli) secili.remove(k); else secili.add(k);
+                                  }),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: izinli ? Colors.redAccent.withOpacity(0.25) : Colors.white.withOpacity(0.05),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: izinli ? Colors.redAccent : Colors.white24),
+                                    ),
+                                    child: Text(k, style: TextStyle(
+                                      color: izinli ? Colors.redAccent : Colors.white70,
+                                      fontWeight: izinli ? FontWeight.bold : FontWeight.normal, fontSize: 13,
+                                    )),
+                                  ),
+                                );
+                              }).toList(),
                             ),
                           ),
+                          actions: [
+                            TextButton(onPressed: () => setD2(() => secili.clear()), child: const Text('TEMİZLE', style: TextStyle(color: Colors.grey))),
+                            TextButton(onPressed: () {
+                              if (secili.isEmpty) _takvimIzinler.remove(dKey); else _takvimIzinler[dKey] = secili;
+                              _saveTakvimIzinler();
+                              setD(() {});
+                              Navigator.pop(ctx2);
+                            }, child: const Text('KAYDET', style: TextStyle(color: Colors.greenAccent))),
+                          ],
+                        );
+                      });
+                    });
+                  },
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(vertical: 1),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: bugunMu
+                          ? Colors.orangeAccent.withOpacity(0.12)
+                          : (isOff ? Colors.transparent : renkler[idx].withOpacity(0.06)),
+                      borderRadius: BorderRadius.circular(6),
+                      border: bugunMu ? Border.all(color: Colors.orangeAccent, width: 1.5) : null,
+                    ),
+                    child: Row(children: [
+                      // Tarih
+                      SizedBox(
+                        width: 58,
+                        child: Text(
+                          '${gun.day} ${ayAdlari[gun.month]}',
+                          style: TextStyle(
+                            color: bugunMu ? Colors.orangeAccent : (isOff ? Colors.white30 : Colors.white70),
+                            fontSize: 11, fontWeight: bugunMu ? FontWeight.bold : FontWeight.normal,
+                          ),
                         ),
-                      );
-                    }).toList(),
+                      ),
+                      // Gün adı
+                      SizedBox(
+                        width: 28,
+                        child: Text(
+                          gunAdlari[gun.weekday - 1],
+                          style: TextStyle(color: bugunMu ? Colors.orangeAccent : Colors.white38, fontSize: 9),
+                        ),
+                      ),
+                      // Etiket
+                      SizedBox(
+                        width: 80,
+                        child: Text(
+                          etiket,
+                          style: TextStyle(
+                            color: isOff ? Colors.white24 : renkler[idx],
+                            fontSize: 10, fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      // İzinliler
+                      Expanded(
+                        child: izinliler.isNotEmpty
+                            ? Text(
+                                izinliler.join(' '),
+                                style: const TextStyle(color: Colors.redAccent, fontSize: 9, fontWeight: FontWeight.bold),
+                                overflow: TextOverflow.ellipsis,
+                              )
+                            : const SizedBox(),
+                      ),
+                    ]),
                   ),
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () {
-                      setD2(() => secili.clear());
-                    },
-                    child: const Text('TEMİZLE', style: TextStyle(color: Colors.grey)),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      if (secili.isEmpty) {
-                        _takvimIzinler.remove(key);
-                      } else {
-                        _takvimIzinler[key] = secili;
-                      }
-                      _saveTakvimIzinler();
-                      setD(() {}); // takvimi güncelle
-                      Navigator.pop(ctx2);
-                    },
-                    child: const Text('KAYDET', style: TextStyle(color: Colors.greenAccent)),
-                  ),
-                ],
-              );
-            });
-          });
+                );
+              }),
+            ),
+          );
         }
 
         return AlertDialog(
           backgroundColor: const Color(0xFF1A1A1A),
+          titlePadding: const EdgeInsets.fromLTRB(16, 12, 8, 0),
           title: Row(children: [
             IconButton(
-              icon: const Icon(Icons.chevron_left, color: Colors.white70),
-              onPressed: () => setD(() => gorunenAy = DateTime(yil, ay - 1, 1)),
+              icon: const Icon(Icons.chevron_left, color: Colors.white70, size: 20),
+              onPressed: () => setD(() => sayfa--),
             ),
             Expanded(child: Center(child: Text(
-              '${ayIsimleri[ay]} $yil',
-              style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+              '$_aktifEkip Ekibi',
+              style: TextStyle(color: EkipVerisi.renkler[_aktifEkip], fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 3),
             ))),
             IconButton(
-              icon: const Icon(Icons.chevron_right, color: Colors.white70),
-              onPressed: () => setD(() => gorunenAy = DateTime(yil, ay + 1, 1)),
+              icon: const Icon(Icons.chevron_right, color: Colors.white70, size: 20),
+              onPressed: () => setD(() => sayfa++),
             ),
-          ]),
-          content: SizedBox(
-            width: 560,
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              // Gün başlıkları
-              Row(children: gunIsimleri.map((g) => Expanded(
-                child: Center(child: Text(g, style: const TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold))),
-              )).toList()),
-              const SizedBox(height: 4),
-              // Takvim grid
-              ...List.generate(6, (haftaIdx) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 1),
-                  child: Row(children: List.generate(7, (gunIdx) {
-                    int hucreNo = haftaIdx * 7 + gunIdx + 1 - (ilkGunHafta - 1);
-                    if (hucreNo < 1 || hucreNo > gunSayisi) return Expanded(child: Container());
-
-                    DateTime tarih = DateTime(yil, ay, hucreNo);
-                    String gEkip = EkipVerisi.gunduzEkibi(tarih);
-                    String nEkip = EkipVerisi.geceEkibi(tarih);
-                    bool bugun = tarih.day == DateTime.now().day && tarih.month == DateTime.now().month && tarih.year == DateTime.now().year;
-                    bool gBizim = gEkip == _aktifEkip;
-                    bool nBizim = nEkip == _aktifEkip;
-
-                    String key = _tarihKey(tarih);
-                    Set<String> izinliler = _takvimIzinler[key] ?? {};
-                    bool izinVar = izinliler.isNotEmpty;
-
-                    return Expanded(child: GestureDetector(
-                      onTap: () => _gunIzinDuzenle(tarih),
-                      child: Container(
-                        margin: const EdgeInsets.all(1),
-                        padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 1),
-                        decoration: BoxDecoration(
-                          color: bugun ? Colors.white.withOpacity(0.1) : Colors.transparent,
-                          borderRadius: BorderRadius.circular(6),
-                          border: bugun ? Border.all(color: Colors.orangeAccent, width: 1.5) : null,
-                        ),
-                        child: Column(mainAxisSize: MainAxisSize.min, children: [
-                          Text(
-                            '$hucreNo',
-                            style: TextStyle(
-                              color: bugun ? Colors.orangeAccent : Colors.white70,
-                              fontSize: 11,
-                              fontWeight: bugun ? FontWeight.bold : FontWeight.normal,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          // Gündüz
-                          Container(
-                            width: 34, height: 14,
-                            decoration: BoxDecoration(
-                              color: gBizim ? Colors.amber.withOpacity(0.3) : Colors.transparent,
-                              borderRadius: BorderRadius.circular(3),
-                              border: Border.all(color: gBizim ? Colors.amber : Colors.white12, width: 0.5),
-                            ),
-                            child: Center(child: Text(
-                              gEkip,
-                              style: TextStyle(
-                                color: gBizim ? Colors.amber : EkipVerisi.renkler[gEkip]!.withOpacity(0.6),
-                                fontSize: 8, fontWeight: FontWeight.bold,
-                              ),
-                            )),
-                          ),
-                          const SizedBox(height: 1),
-                          // Gece
-                          Container(
-                            width: 34, height: 14,
-                            decoration: BoxDecoration(
-                              color: nBizim ? Colors.lightBlueAccent.withOpacity(0.3) : Colors.transparent,
-                              borderRadius: BorderRadius.circular(3),
-                              border: Border.all(color: nBizim ? Colors.lightBlueAccent : Colors.white12, width: 0.5),
-                            ),
-                            child: Center(child: Text(
-                              nEkip,
-                              style: TextStyle(
-                                color: nBizim ? Colors.lightBlueAccent : EkipVerisi.renkler[nEkip]!.withOpacity(0.6),
-                                fontSize: 8, fontWeight: FontWeight.bold,
-                              ),
-                            )),
-                          ),
-                          // İzinliler
-                          if (izinVar) ...[
-                            const SizedBox(height: 2),
-                            Text(
-                              izinliler.join(' '),
-                              style: const TextStyle(color: Colors.redAccent, fontSize: 6, fontWeight: FontWeight.bold),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
-                        ]),
-                      ),
-                    ));
-                  })),
-                );
-              }),
-              const SizedBox(height: 12),
-              // Lejant
-              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                Container(width: 12, height: 12, decoration: BoxDecoration(color: Colors.amber.withOpacity(0.3), border: Border.all(color: Colors.amber, width: 0.5), borderRadius: BorderRadius.circular(2))),
-                const SizedBox(width: 4),
-                const Text('Gündüz', style: TextStyle(color: Colors.amber, fontSize: 10)),
-                const SizedBox(width: 16),
-                Container(width: 12, height: 12, decoration: BoxDecoration(color: Colors.lightBlueAccent.withOpacity(0.3), border: Border.all(color: Colors.lightBlueAccent, width: 0.5), borderRadius: BorderRadius.circular(2))),
-                const SizedBox(width: 4),
-                const Text('Gece', style: TextStyle(color: Colors.lightBlueAccent, fontSize: 10)),
-                const SizedBox(width: 16),
-                const Text('🔴', style: TextStyle(fontSize: 10)),
-                const SizedBox(width: 4),
-                const Text('İzinli', style: TextStyle(color: Colors.redAccent, fontSize: 10)),
-              ]),
-            ]),
-          ),
-          actions: [
-            TextButton(
+            const SizedBox(width: 8),
+            IconButton(
+              icon: const Icon(Icons.save_outlined, color: Colors.greenAccent, size: 20),
+              tooltip: 'Bugünün izinlerini borda uygula',
               onPressed: () {
                 Navigator.pop(ctx);
                 _takvimdenIzinUygula();
               },
-              child: const Text('BUGÜNÜ BORDA UYGULA', style: TextStyle(color: Colors.greenAccent, fontSize: 11)),
             ),
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("KAPAT")),
-          ],
+            IconButton(
+              icon: const Icon(Icons.close, color: Colors.white38, size: 20),
+              onPressed: () => Navigator.pop(ctx),
+            ),
+          ]),
+          contentPadding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+          content: SizedBox(
+            width: 580,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Sol sütun: 3 döngü
+                Expanded(child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: donguler.sublist(0, 3).map((d) => donguWidget(d)).toList(),
+                )),
+                const SizedBox(width: 12),
+                // Sağ sütun: 3 döngü
+                Expanded(child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: donguler.sublist(3, 6).map((d) => donguWidget(d)).toList(),
+                )),
+              ],
+            ),
+          ),
+          actions: const [],
         );
       });
     });
