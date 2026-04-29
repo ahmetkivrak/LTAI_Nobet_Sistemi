@@ -3713,7 +3713,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     'Y': 'YILLIK', 'M': 'MAZERET', 'R': 'RAPOR', 'G': 'GOREV'
   };
   static const Map<String, Color> _izinRenkleri = {
-    'Y': Colors.redAccent, 'M': Colors.orangeAccent, 'R': Colors.purpleAccent, 'G': Colors.tealAccent
+    'Y': Colors.redAccent, 'M': Colors.orangeAccent, 'R': Color(0xFF5C6BC0), 'G': Colors.tealAccent
   };
 
   String _tarihKey(DateTime d) => "${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year}";
@@ -3923,13 +3923,23 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                 return Padding(
                   padding: const EdgeInsets.only(top: 2),
                   child: Row(children: [
-                    Expanded(flex: 2, child: iz0.isEmpty ? const SizedBox() : Wrap(
-                      spacing: 2, runSpacing: 0, alignment: WrapAlignment.center,
-                      children: iz0.entries.map((e) => izinChip(e.key, e.value)).toList(),
+                    Expanded(flex: 2, child: iz0.isEmpty ? const SizedBox() : Column(
+                      children: [
+                        for (int r = 0; r < (iz0.length / 3).ceil(); r++)
+                          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                            for (var e in iz0.entries.toList().skip(r * 3).take(3))
+                              izinChip(e.key, e.value),
+                          ]),
+                      ],
                     )),
-                    Expanded(flex: 2, child: iz1.isEmpty ? const SizedBox() : Wrap(
-                      spacing: 2, runSpacing: 0, alignment: WrapAlignment.center,
-                      children: iz1.entries.map((e) => izinChip(e.key, e.value)).toList(),
+                    Expanded(flex: 2, child: iz1.isEmpty ? const SizedBox() : Column(
+                      children: [
+                        for (int r = 0; r < (iz1.length / 3).ceil(); r++)
+                          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                            for (var e in iz1.entries.toList().skip(r * 3).take(3))
+                              izinChip(e.key, e.value),
+                          ]),
+                      ],
                     )),
                     const Expanded(flex: 3, child: SizedBox()),
                   ]),
