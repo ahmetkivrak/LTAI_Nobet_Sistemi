@@ -3789,7 +3789,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
             return StatefulBuilder(builder: (c2, s2) {
               return AlertDialog(
                 backgroundColor: const Color(0xFF222222),
-                title: Text('${gun.day}.${gun.month.toString().padLeft(2, '0')} ${gA[gun.weekday - 1]}',
+                title: Text('${gun.day} ${ayAd[gun.month]} ${gun.year} ${['Pazartesi','Sali','Carsamba','Persembe','Cuma','Cumartesi','Pazar'][gun.weekday - 1]}',
                   style: const TextStyle(color: Colors.white, fontSize: 14)),
                 content: SizedBox(width: 340, child: Column(mainAxisSize: MainAxisSize.min, children: [
                   Padding(padding: const EdgeInsets.only(bottom: 10), child: Row(
@@ -3851,24 +3851,24 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
           backgroundColor: const Color(0xFF1A1A1A),
           titlePadding: const EdgeInsets.fromLTRB(8, 8, 4, 0),
           title: Row(children: [
-            IconButton(icon: const Icon(Icons.chevron_left, color: Colors.white38, size: 18),
+            IconButton(icon: const Icon(Icons.chevron_left, color: Colors.white38, size: 24),
               onPressed: () => setD(() => gorunenAy = DateTime(yil, ay - 1, 1))),
             Expanded(child: Center(child: Text('${ayAd[ay]} $yil',
-              style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 2)))),
-            IconButton(icon: const Icon(Icons.chevron_right, color: Colors.white38, size: 18),
+              style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: 3)))),
+            IconButton(icon: const Icon(Icons.chevron_right, color: Colors.white38, size: 24),
               onPressed: () => setD(() => gorunenAy = DateTime(yil, ay + 1, 1))),
-            IconButton(icon: const Icon(Icons.close, color: Colors.white24, size: 18),
+            IconButton(icon: const Icon(Icons.close, color: Colors.white24, size: 24),
               onPressed: () => Navigator.pop(ctx)),
           ]),
           contentPadding: const EdgeInsets.fromLTRB(10, 4, 10, 8),
           content: SizedBox(
-            width: 620,
+            width: 870,
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               // Gun basliklari
               Row(children: gA.map((g) => Expanded(
                 child: Container(
                   padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Center(child: Text(g, style: const TextStyle(color: Colors.white38, fontSize: 9, fontWeight: FontWeight.bold))),
+                  child: Center(child: Text(g, style: const TextStyle(color: Colors.white38, fontSize: 12, fontWeight: FontWeight.bold))),
                 ),
               )).toList()),
               const Divider(color: Colors.white12, height: 1),
@@ -3909,7 +3909,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                       return Expanded(child: GestureDetector(
                         onTap: () => _gunIzinDuzenle(tarih),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 2),
+                          padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 3),
                           decoration: BoxDecoration(
                             color: bugunMu ? Colors.orangeAccent.withOpacity(0.1) : Colors.transparent,
                             border: Border(
@@ -3918,16 +3918,16 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                             ),
                           ),
                           child: Column(mainAxisSize: MainAxisSize.min, children: [
-                            // Renk cubugu
-                            Container(width: 24, height: 3, margin: const EdgeInsets.only(bottom: 2),
-                              decoration: BoxDecoration(
-                                color: renk ?? Colors.white.withOpacity(0.06),
-                                borderRadius: BorderRadius.circular(2))),
                             // Gun numarasi
                             Text('$hucreNo',
                               style: TextStyle(
                                 color: bugunMu ? Colors.orangeAccent : (off ? Colors.white24 : Colors.white70),
-                                fontSize: 12, fontWeight: (bugunMu || !off) ? FontWeight.bold : FontWeight.normal)),
+                                fontSize: 16, fontWeight: (bugunMu || !off) ? FontWeight.bold : FontWeight.normal)),
+                            // Renk cubugu (tarihin altinda)
+                            Container(width: 30, height: 3, margin: const EdgeInsets.only(top: 2, bottom: 2),
+                              decoration: BoxDecoration(
+                                color: renk ?? Colors.white.withOpacity(0.06),
+                                borderRadius: BorderRadius.circular(2))),
                             // Izinliler - 3 sutun grid
                             if (izinliler.isNotEmpty) ...[
                               const SizedBox(height: 2),
@@ -3936,7 +3936,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                                 return Row(children: [
                                   for (var e in satirKisiler)
                                     Expanded(child: Center(child: Text(e.key,
-                                      style: TextStyle(color: _izinRenkleri[e.value] ?? Colors.redAccent, fontSize: 7, fontWeight: FontWeight.bold)))),
+                                      style: TextStyle(color: _izinRenkleri[e.value] ?? Colors.redAccent, fontSize: 9, fontWeight: FontWeight.bold)))),
                                   for (int p = 0; p < 3 - satirKisiler.length; p++)
                                     const Expanded(child: SizedBox()),
                                 ]);
