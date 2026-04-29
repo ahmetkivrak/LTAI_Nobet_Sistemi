@@ -3710,10 +3710,10 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
   Map<String, Map<String, String>> _takvimIzinler = {};
 
   static const Map<String, String> _izinTurleri = {
-    'I': 'IZIN', 'M': 'MAZERET', 'R': 'RAPOR', 'G': 'GOREV'
+    'Y': 'YILLIK', 'M': 'MAZERET', 'R': 'RAPOR', 'G': 'GOREV'
   };
   static const Map<String, Color> _izinRenkleri = {
-    'I': Colors.redAccent, 'M': Colors.orangeAccent, 'R': Colors.purpleAccent, 'G': Colors.tealAccent
+    'Y': Colors.redAccent, 'M': Colors.orangeAccent, 'R': Colors.purpleAccent, 'G': Colors.tealAccent
   };
 
   String _tarihKey(DateTime d) => "${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year}";
@@ -3730,7 +3730,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
             _takvimIzinler[k] = Map<String, String>.from(v);
           } else if (v is List) {
             // Eski format uyumlulugu (List -> hepsini 'I' yap)
-            _takvimIzinler[k] = {for (var name in v) name as String: 'I'};
+            _takvimIzinler[k] = {for (var name in v) name as String: 'Y'};
           }
         });
       } catch (_) {}
@@ -3821,9 +3821,9 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                       return GestureDetector(
                         onTap: () => s2(() {
                           // Cycle: null -> I -> M -> R -> G -> null
-                          List<String> sira = ['I', 'M', 'R', 'G'];
+                          List<String> sira = ['Y', 'M', 'R', 'G'];
                           if (tur == null) {
-                            sec[k] = 'I';
+                            sec[k] = 'Y';
                           } else {
                             int idx = sira.indexOf(tur);
                             if (idx < sira.length - 1) {
