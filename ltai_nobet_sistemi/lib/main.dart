@@ -3529,7 +3529,39 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
 
                 String k = tumPersonelHavuzu[i]; bool pas = gunlukDurum[k]!.contains('OFF') || gunlukDurum[k]!.contains('OJTI');
                 return Card(color: Colors.white.withOpacity(0.04), child: Padding(padding: const EdgeInsets.all(10), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  GestureDetector(onTap: () => _isimDuzenle(i, setD), child: Text(k, style: TextStyle(fontWeight: FontWeight.bold, decoration: TextDecoration.underline, color: pas ? Colors.white24 : Colors.white))),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      GestureDetector(onTap: () => _isimDuzenle(i, setD), child: Text(k, style: TextStyle(fontWeight: FontWeight.bold, decoration: TextDecoration.underline, color: pas ? Colors.white24 : Colors.white))),
+                      if (!gunlukDurum[k]!.contains('OFF'))
+                        InkWell(
+                          onTap: () => setD(() {
+                            if (gunlukDurum[k]!.contains('OJTI')) {
+                              gunlukDurum[k]!.remove('OJTI');
+                            } else {
+                              gunlukDurum[k]!.add('OJTI');
+                            }
+                            _gruplariGuncelle(arsiveKaydet: false);
+                          }),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: gunlukDurum[k]!.contains('OJTI') ? Colors.cyan.withOpacity(0.3) : Colors.transparent,
+                              border: Border.all(color: gunlukDurum[k]!.contains('OJTI') ? Colors.cyanAccent : Colors.white24),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.school, size: 14, color: gunlukDurum[k]!.contains('OJTI') ? Colors.cyanAccent : Colors.white54),
+                                const SizedBox(width: 4),
+                                Text("OJTI", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: gunlukDurum[k]!.contains('OJTI') ? Colors.cyanAccent : Colors.white54)),
+                              ],
+                            )
+                          )
+                        )
+                    ]
+                  ),
                   const SizedBox(height: 10),
                   Wrap(spacing: 6, runSpacing: 6, children: [ 
                     if (!tamOtomatikDagitim) ...[
@@ -3540,8 +3572,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                       _durumBtn(k, 'E', Colors.blue, setD, "E"),
                     ],
                     if (isGunduzVardiyasi) _durumBtn(k, 'HAMAL', Colors.pinkAccent, setD, "KARINCA"), 
-                    if (isGunduzVardiyasi) _durumBtn(k, 'ENSECİ', Colors.lightBlueAccent, setD, "AĞUSTOS BÖCEĞİ"),
-                    if (!gunlukDurum[k]!.contains('OFF')) _ozelSecimBtn(k, 'OJTI', Colors.cyan.shade900, setD),
+                    if (isGunduzVardiyasi) _durumBtn(k, 'ENSECİ', Colors.lightBlueAccent, setD, "AĞUSTOS BÖCEĞİ")
                   ]),
                   
                   if (!pas) Padding(
