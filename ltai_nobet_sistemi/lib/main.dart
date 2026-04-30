@@ -512,6 +512,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     _sadeceNotamVerisiniCek(); // Açılışta taze NOTAM'ları otomatik çek
     _trafikSlotlariniHesapla();
     gunlukSeviye = hakimSeviye;
+    isPinned = false;
     _gruplariGuncelle(arsiveKaydet: false);
     _loadNotamPrefs(); // Rozet tercihlerini yükle
     _loadPersonelPrefs(); // Kişi listesi hafızadan yükle
@@ -544,6 +545,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     _havayiTariheGoreFiltrele(); 
     _trafikSlotlariniHesapla();
     gunlukSeviye = hakimSeviye;
+    isPinned = false;
     _gruplariGuncelle(arsiveKaydet: false);
   }
 
@@ -703,7 +705,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
           bulutlu: bCloud && !yag && !oraj, gunesli: !bCloud && !yag && !oraj, siddetliRuzgar: sRuz
         );
     }
-    setState(() { _trafikSlotlariniHesapla(); gunlukSeviye = hakimSeviye; _gruplariGuncelle(); });
+    setState(() { _trafikSlotlariniHesapla(); gunlukSeviye = hakimSeviye; isPinned = false; _gruplariGuncelle(); });
   }
 
   void _trafikSlotlariniHesapla() {
