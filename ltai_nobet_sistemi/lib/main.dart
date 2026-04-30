@@ -409,13 +409,13 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
   /// Aktif kadro içinde herhangi biri manuel Karınca seçilmiş mi?
   bool get _herhangiManuelKarinca => tumPersonelHavuzu.any((p) =>
       !(gunlukDurum[p]?.contains('OFF') ?? false) &&
-      !(gunlukDurum[p]?.contains('KAZANDIŞI') ?? false) &&
+      !(gunlukDurum[p]?.contains('OJTI') ?? false) &&
       (gunlukDurum[p]?.contains('HAMAL') ?? false));
 
   /// Aktif kadro içinde herhangi biri manuel Aguştos Böceği seçilmiş mi?
   bool get _herhangiManuelEnseci => tumPersonelHavuzu.any((p) =>
       !(gunlukDurum[p]?.contains('OFF') ?? false) &&
-      !(gunlukDurum[p]?.contains('KAZANDIŞI') ?? false) &&
+      !(gunlukDurum[p]?.contains('OJTI') ?? false) &&
       (gunlukDurum[p]?.contains('ENSECİ') ?? false));
 
   bool tamOtomatikDagitim = true;
@@ -798,7 +798,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       if (aktifPersonelHavuzu != null) {
          isAnyActiveSup = aktifPersonelHavuzu.any((k) => (yetkiler[k] ?? <String>{}).contains('SUP'));
       } else {
-         isAnyActiveSup = tumPersonelHavuzu.any((k) => !gunlukDurum[k]!.contains('OFF') && !gunlukDurum[k]!.contains('KAZANDIŞI') && (yetkiler[k] ?? <String>{}).contains('SUP'));
+         isAnyActiveSup = tumPersonelHavuzu.any((k) => !gunlukDurum[k]!.contains('OFF') && !gunlukDurum[k]!.contains('OJTI') && (yetkiler[k] ?? <String>{}).contains('SUP'));
       }
       if (!isAnyActiveSup) return true; 
       if (supOnlySecilenler.contains(kisi)) return true; 
@@ -979,7 +979,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
             !gunlukDurum[k]!.contains('HAMAL') &&
             !gunlukDurum[k]!.contains('ENSECİ') &&
             !gunlukDurum[k]!.contains('OFF') &&
-            !gunlukDurum[k]!.contains('KAZANDIŞI')
+            !gunlukDurum[k]!.contains('OJTI')
           ).toList();
           adayH.sort((a, b) => _getArsivYorgunlukOrtalamasi(b).compareTo(_getArsivYorgunlukOrtalamasi(a)));
           for (int i = 0; i < bockEksiH && i < adayH.length; i++) {
@@ -995,7 +995,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
             !gunlukDurum[k]!.contains('HAMAL') &&
             !gunlukDurum[k]!.contains('HAMAL_OTO') &&
             !gunlukDurum[k]!.contains('OFF') &&
-            !gunlukDurum[k]!.contains('KAZANDIŞI')
+            !gunlukDurum[k]!.contains('OJTI')
           ).toList();
           adayE.sort((a, b) => _getArsivYorgunlukOrtalamasi(a).compareTo(_getArsivYorgunlukOrtalamasi(b)));
           for (int i = 0; i < bockEksiE && i < adayE.length; i++) {
@@ -2001,7 +2001,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     if (anlikTrafik.isEmpty) return;
     
     Set<String> aktifBK = isGunduzVardiyasi ? Set.from(bizimleKalSecilenler) : {};
-    var aktifPersonel = tumPersonelHavuzu.where((k) => !gunlukDurum[k]!.contains('OFF') && !gunlukDurum[k]!.contains('KAZANDIŞI')).toList();
+    var aktifPersonel = tumPersonelHavuzu.where((k) => !gunlukDurum[k]!.contains('OFF') && !gunlukDurum[k]!.contains('OJTI')).toList();
 
     if (isGunduzVardiyasi && aktifBK.isEmpty && tamOtomatikDagitim) {
       List<BordArsivi> ayniTipArsiv = tamArsiv.where((a) {
@@ -3030,7 +3030,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                       );
                     }
 
-                    bool isOff = gunlukDurum[kisi]!.contains('OFF') || gunlukDurum[kisi]!.contains('KAZANDIŞI');
+                    bool isOff = gunlukDurum[kisi]!.contains('OFF') || gunlukDurum[kisi]!.contains('OJTI');
                     if (isOff) return const SizedBox.shrink();
                     if (isTakasMode && kisi == _yalnIsim(currentPerson)) return const SizedBox.shrink();
 
@@ -3300,8 +3300,8 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
   void _kadroSecimEkraniAc() {
     showDialog(context: context, builder: (context) => StatefulBuilder(builder: (context, setD) {
       
-      // BK kişisi aktif kadroda (shift çalışır), OFF ve KAZANDIŞI hariç
-      int tCount = tumPersonelHavuzu.where((k) => !gunlukDurum[k]!.contains('OFF') && !gunlukDurum[k]!.contains('KAZANDIŞI')).length;
+      // BK kişisi aktif kadroda (shift çalışır), OFF ve OJTI hariç
+      int tCount = tumPersonelHavuzu.where((k) => !gunlukDurum[k]!.contains('OFF') && !gunlukDurum[k]!.contains('OJTI')).length;
       int totalSlots = 0;
       if (anlikTrafik.isNotEmpty) {
         for (int i = 0; i < saatler.length; i++) {
@@ -3318,8 +3318,8 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       int majT = 0; int hGerek = 0; int eGerek = 0;
       
       // Manuel seçilen KARINCA/ENSECİ sayıları
-      int manuelHamal = tumPersonelHavuzu.where((k) => !gunlukDurum[k]!.contains('OFF') && !gunlukDurum[k]!.contains('KAZANDIŞI') && gunlukDurum[k]!.contains('HAMAL')).length;
-      int manuelEnseci = tumPersonelHavuzu.where((k) => !gunlukDurum[k]!.contains('OFF') && !gunlukDurum[k]!.contains('KAZANDIŞI') && gunlukDurum[k]!.contains('ENSECİ')).length;
+      int manuelHamal = tumPersonelHavuzu.where((k) => !gunlukDurum[k]!.contains('OFF') && !gunlukDurum[k]!.contains('OJTI') && gunlukDurum[k]!.contains('HAMAL')).length;
+      int manuelEnseci = tumPersonelHavuzu.where((k) => !gunlukDurum[k]!.contains('OFF') && !gunlukDurum[k]!.contains('OJTI') && gunlukDurum[k]!.contains('ENSECİ')).length;
       
       if (tCount > 0) {
         if (rem == 0) {
@@ -3527,7 +3527,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                   );
                 }
 
-                String k = tumPersonelHavuzu[i]; bool pas = gunlukDurum[k]!.contains('OFF') || gunlukDurum[k]!.contains('KAZANDIŞI');
+                String k = tumPersonelHavuzu[i]; bool pas = gunlukDurum[k]!.contains('OFF') || gunlukDurum[k]!.contains('OJTI');
                 return Card(color: Colors.white.withOpacity(0.04), child: Padding(padding: const EdgeInsets.all(10), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   GestureDetector(onTap: () => _isimDuzenle(i, setD), child: Text(k, style: TextStyle(fontWeight: FontWeight.bold, decoration: TextDecoration.underline, color: pas ? Colors.white24 : Colors.white))),
                   const SizedBox(height: 10),
@@ -3553,6 +3553,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                           children: [
                             ...getSektorlerByLevel(gunlukSeviye).map((pos) => _yetkiBtn(k, pos, setD)),
                             if (isGunduzVardiyasi) _ozelSecimBtn(k, 'SUP ONLY', Colors.red.shade900, setD),
+                            _ozelSecimBtn(k, 'OJTI', Colors.cyan.shade900, setD),
                           ],
                         ),
                         const SizedBox(height: 6),
@@ -4384,6 +4385,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     if (type == '08⁰⁰-09⁰⁰') isSelected = gece0809Secilenler.contains(k);
     if (type == 'OFF') isSelected = geceOffSecilenler.contains(k);
     if (type == 'SUP ONLY') isSelected = supOnlySecilenler.contains(k);
+    if (type == 'OJTI') isSelected = gunlukDurum[k]!.contains('OJTI');
 
     return InkWell(
       onTap: () => setD(() {
@@ -4401,6 +4403,12 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
            } else {
              supOnlySecilenler.add(k);
              yetkiler[k]?.remove('SUP'); // SUP ONLY seçilince SUP yetkisini kaldır
+           }
+        } else if (type == 'OJTI') {
+           if (isSelected) {
+             gunlukDurum[k]!.remove('OJTI');
+           } else {
+             gunlukDurum[k]!.add('OJTI');
            }
         } else if (type == 'İLK') {
           if (isSelected) {
@@ -4496,7 +4504,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     bool s = gunlukDurum[k]!.contains(d);
     return InkWell(
       onTap: () => setD(() {
-        if (d == 'OFF' || d == 'KAZANDIŞI') {
+        if (d == 'OFF' || d == 'OJTI') {
           if (s) {
             gunlukDurum[k] = {'A'}; 
           } else {
@@ -4504,7 +4512,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
           }
         } else {
           gunlukDurum[k]!.remove('OFF');
-          gunlukDurum[k]!.remove('KAZANDIŞI');
+          gunlukDurum[k]!.remove('OJTI');
           if (!tamOtomatikDagitim && ['A','B','C','D','E'].contains(d)) {
             gunlukDurum[k]!.removeWhere((x) => ['A','B','C','D','E'].contains(x));
             gunlukDurum[k]!.add(d);
