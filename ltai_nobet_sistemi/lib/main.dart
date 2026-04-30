@@ -3540,7 +3540,8 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                       _durumBtn(k, 'E', Colors.blue, setD, "E"),
                     ],
                     if (isGunduzVardiyasi) _durumBtn(k, 'HAMAL', Colors.pinkAccent, setD, "KARINCA"), 
-                    if (isGunduzVardiyasi) _durumBtn(k, 'ENSECİ', Colors.lightBlueAccent, setD, "AĞUSTOS BÖCEĞİ")
+                    if (isGunduzVardiyasi) _durumBtn(k, 'ENSECİ', Colors.lightBlueAccent, setD, "AĞUSTOS BÖCEĞİ"),
+                    if (!gunlukDurum[k]!.contains('OFF')) _ozelSecimBtn(k, 'OJTI', Colors.cyan.shade900, setD),
                   ]),
                   
                   if (!pas) Padding(
@@ -3553,7 +3554,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                           children: [
                             ...getSektorlerByLevel(gunlukSeviye).map((pos) => _yetkiBtn(k, pos, setD)),
                             if (isGunduzVardiyasi) _ozelSecimBtn(k, 'SUP ONLY', Colors.red.shade900, setD),
-                            _ozelSecimBtn(k, 'OJTI', Colors.cyan.shade900, setD),
                           ],
                         ),
                         const SizedBox(height: 6),
