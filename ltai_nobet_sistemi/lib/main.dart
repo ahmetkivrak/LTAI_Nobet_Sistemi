@@ -419,6 +419,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       (gunlukDurum[p]?.contains('ENSECİ') ?? false));
 
   bool tamOtomatikDagitim = true;
+  bool isPinned = false;
   double gunlukSeviye = 4.0;
   double get hakimSeviye {
     if (anlikTrafik24.isEmpty || anlikTrafik.isEmpty) return 4.0;
@@ -457,6 +458,13 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     return ["TWR_W", "DEL", "GND_S", "TWR_E", "GND_N", "GND_C", "SUP"]; 
   }
 
+
+  double _getEffectiveLevel(int trafik, double defaultLvl) {
+    if (tamOtomatikDagitim) return _getIdealLevel(trafik);
+    if (isPinned) return defaultLvl;
+    double ideal = _getIdealLevel(trafik);
+    return ideal < defaultLvl ? ideal : defaultLvl;
+  }
   double _getIdealLevel(int trafik, {int? l34, int? l45, int? l56, int? l67}) {
     int b34 = l34 ?? t3to4; // 3.0 -> 3.5 sınırı
     int b45 = l45 ?? t4to5; // 3.5 -> 4.0 sınırı
@@ -959,7 +967,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     {
       int totalSLocal = 0;
       for (int i = 0; i < saatler.length; i++) {
-        totalSLocal += getSektorlerByLevel(tamOtomatikDagitim ? _getIdealLevel(anlikTrafik[i % anlikTrafik.length].genelToplam) : gunlukSeviye).length;
+        totalSLocal += getSektorlerByLevel(_getEffectiveLevel(anlikTrafik[i % anlikTrafik.length].genelToplam, gunlukSeviye)).length;
       }
       int bCount = aktifPersonel.length;
       if (bCount > 0) {
@@ -1344,7 +1352,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       for (int ah in sTaramasi) {
         bool isYarin = (ah < 12);
         TrafikVerisi trf = isYarin ? yarinT24[ah] : anlikTrafik24[ah];
-        double sLvlLocal = tamOtomatikDagitim ? _getIdealLevel(trf.genelToplam) : gunlukSeviye;
+        double sLvlLocal = _getEffectiveLevel(trf.genelToplam, gunlukSeviye);
         hPozisyonlar[ah] = getSektorlerByLevel(sLvlLocal);
       }
 
@@ -1713,7 +1721,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
          Map<int, List<String>> hPozisyonlar = {};
          for (int ah in sTaramasi) {
             TrafikVerisi trf = anlikTrafik24[ah];
-            double sLvlLocal = tamOtomatikDagitim ? _getIdealLevel(trf.genelToplam) : gunlukSeviye;
+            double sLvlLocal = _getEffectiveLevel(trf.genelToplam, gunlukSeviye);
             hPozisyonlar[ah] = getSektorlerByLevel(sLvlLocal);
          }
          
@@ -2049,7 +2057,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     
     int totalS = 0;
     for (int i = 0; i < saatler.length; i++) {
-      totalS += getSektorlerByLevel(tamOtomatikDagitim ? _getIdealLevel(anlikTrafik[i % anlikTrafik.length].genelToplam) : gunlukSeviye).length;
+      totalS += getSektorlerByLevel(_getEffectiveLevel(anlikTrafik[i % anlikTrafik.length].genelToplam, gunlukSeviye)).length;
     }
     
     int aCount = aktifPersonel.length;
@@ -3306,7 +3314,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       if (anlikTrafik.isNotEmpty) {
         for (int i = 0; i < saatler.length; i++) {
           int trf = anlikTrafik[i % anlikTrafik.length].genelToplam;
-          double lvl = tamOtomatikDagitim ? _getIdealLevel(trf) : gunlukSeviye;
+          double lvl = _getEffectiveLevel(trf, gunlukSeviye);
           totalSlots += getSektorlerByLevel(lvl).length;
         }
       } else {
@@ -3357,7 +3365,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                           ),
                           icon: Icon(tamOtomatikDagitim ? Icons.smart_toy : Icons.smart_toy_outlined, size: 16),
                           label: const Text("AI", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
-                          onPressed: () => setD(() { tamOtomatikDagitim = !tamOtomatikDagitim; _gruplariGuncelle(arsiveKaydet: false); })
+                          onPressed: () => setD(() { tamOtomatikDagitim = !tamOtomatikDagitim; if (tamOtomatikDagitim) isPinned = false; _gruplariGuncelle(arsiveKaydet: false); })
                         )
                       ),
                       const SizedBox(height: 6),
@@ -3487,7 +3495,16 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                 return Padding(
                   padding: const EdgeInsets.only(right: 6), 
                   child: InkWell(
-                    onTap: () => setD(() { gunlukSeviye = v.toDouble(); _gruplariGuncelle(arsiveKaydet: false); }), 
+                    onTap: () => setD(() { 
+                      if (gunlukSeviye == v.toDouble() && !tamOtomatikDagitim) {
+                        isPinned = !isPinned;
+                      } else {
+                        gunlukSeviye = v.toDouble(); 
+                        tamOtomatikDagitim = false;
+                        isPinned = false;
+                      }
+                      _gruplariGuncelle(arsiveKaydet: false); 
+                    }), 
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10), 
                       decoration: BoxDecoration(
@@ -3497,7 +3514,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                         boxShadow: iA ? [BoxShadow(color: Colors.greenAccent.withOpacity(0.3), blurRadius: 4, spreadRadius: 1)] : null
                       ), 
                       child: Text(
-                        v % 1 == 0 ? "S${v.toInt()}${iA ? ' 🤖' : ''}" : "S$v${iA ? ' 🤖' : ''}", 
+                        v % 1 == 0 ? "S${v.toInt()}${iA ? ' 🤖' : (isPinned && iS ? ' 📌' : '')}" : "S$v${iA ? ' 🤖' : (isPinned && iS ? ' 📌' : '')}", 
                         style: TextStyle(color: iS ? Colors.black : Colors.greenAccent, fontWeight: FontWeight.bold, fontSize: 10)
                       )
                     )
