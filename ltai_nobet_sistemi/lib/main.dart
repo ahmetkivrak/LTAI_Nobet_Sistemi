@@ -460,13 +460,19 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
 
 
   double _getEffectiveLevel(int trafik, double defaultLvl) {
-    if (tamOtomatikDagitim) return _getIdealLevel(trafik);
     if (isPinned) return defaultLvl;
     
-    // Single Click (Anchor Mode): Trafik +/- 0.5 kademe esneyebilir.
     double ideal = _getIdealLevel(trafik);
-    if (ideal < defaultLvl - 0.5) return defaultLvl - 0.5;
-    if (ideal > defaultLvl + 0.5) return defaultLvl + 0.5;
+    
+    // Kullanıcı bir senaryo seçtiyse (anchor), AI açık olsa bile +/- 0.5 sınırı uygula
+    bool hasAnchor = (defaultLvl != hakimSeviye);
+    if (hasAnchor) {
+      if (ideal < defaultLvl - 0.5) return defaultLvl - 0.5;
+      if (ideal > defaultLvl + 0.5) return defaultLvl + 0.5;
+      return ideal;
+    }
+    
+    // Saf AI modu (anchor yok) — trafiğe tam güven
     return ideal;
   }
   double _getIdealLevel(int trafik, {int? l34, int? l45, int? l56, int? l67}) {
@@ -3493,16 +3499,50 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
             child: Row(
               children: [3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7].map((v) { 
                 bool iS = gunlukSeviye == v.toDouble();
-                bool iA = (v.toDouble() == hakimSeviye) && tamOtomatikDagitim;
+                bool iA = (v.toDouble() == hakimSeviye) && tamOtomatikDagitim && !iS;
+                bool isAnchor = iS && (gunlukSeviye != hakimSeviye) && !isPinned;
+                bool isPin = iS && isPinned;
+                
+                // Renk belirleme
+                Color bgColor = Colors.transparent;
+                Color borderColor = Colors.greenAccent.withOpacity(0.4);
+                double borderW = 1.0;
+                Color textColor = Colors.greenAccent;
+                List<BoxShadow>? shadows;
+                String suffix = '';
+                
+                if (isPin) {
+                  bgColor = isGunduzVardiyasi ? Colors.green.shade700 : Colors.indigo.shade600;
+                  borderColor = Colors.white54;
+                  borderW = 2.0;
+                  textColor = Colors.white;
+                  suffix = ' 📌';
+                } else if (isAnchor) {
+                  bgColor = isGunduzVardiyasi ? Colors.greenAccent.shade400 : Colors.indigo.shade300;
+                  borderColor = Colors.white70;
+                  borderW = 2.0;
+                  textColor = Colors.black;
+                  suffix = ' ⚓';
+                } else if (iA) {
+                  borderColor = Colors.greenAccent;
+                  borderW = 2.0;
+                  shadows = [BoxShadow(color: Colors.greenAccent.withOpacity(0.3), blurRadius: 4, spreadRadius: 1)];
+                  suffix = ' 🤖';
+                } else if (iS) {
+                  bgColor = Colors.greenAccent;
+                  textColor = Colors.black;
+                }
+                
                 return Padding(
                   padding: const EdgeInsets.only(right: 6), 
                   child: InkWell(
                     onTap: () => setD(() { 
-                      if (gunlukSeviye == v.toDouble() && !tamOtomatikDagitim) {
+                      if (gunlukSeviye == v.toDouble()) {
+                        // Aynı senaryoya tekrar tıklama → pin toggle
                         isPinned = !isPinned;
                       } else {
+                        // Farklı senaryo seçimi → anchor seviye belirle, AI açık kalsın
                         gunlukSeviye = v.toDouble(); 
-                        tamOtomatikDagitim = false;
                         isPinned = false;
                       }
                       _gruplariGuncelle(arsiveKaydet: false); 
@@ -3510,14 +3550,14 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10), 
                       decoration: BoxDecoration(
-                        color: iS ? Colors.greenAccent : Colors.transparent, 
-                        border: Border.all(color: iA ? Colors.greenAccent : (iS ? Colors.black : Colors.greenAccent.withOpacity(0.4)), width: iA ? 2 : 1), 
+                        color: bgColor, 
+                        border: Border.all(color: borderColor, width: borderW), 
                         borderRadius: BorderRadius.circular(6),
-                        boxShadow: iA ? [BoxShadow(color: Colors.greenAccent.withOpacity(0.3), blurRadius: 4, spreadRadius: 1)] : null
+                        boxShadow: shadows
                       ), 
                       child: Text(
-                        v % 1 == 0 ? "S${v.toInt()}${iA ? ' 🤖' : (isPinned && iS ? ' 📌' : '')}" : "S$v${iA ? ' 🤖' : (isPinned && iS ? ' 📌' : '')}", 
-                        style: TextStyle(color: iS ? Colors.black : Colors.greenAccent, fontWeight: FontWeight.bold, fontSize: 10)
+                        v % 1 == 0 ? "S${v.toInt()}$suffix" : "S$v$suffix", 
+                        style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 10)
                       )
                     )
                   )
