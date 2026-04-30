@@ -462,8 +462,12 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
   double _getEffectiveLevel(int trafik, double defaultLvl) {
     if (tamOtomatikDagitim) return _getIdealLevel(trafik);
     if (isPinned) return defaultLvl;
+    
+    // Single Click (Anchor Mode): Trafik +/- 0.5 kademe esneyebilir.
     double ideal = _getIdealLevel(trafik);
-    return ideal < defaultLvl ? ideal : defaultLvl;
+    if (ideal < defaultLvl - 0.5) return defaultLvl - 0.5;
+    if (ideal > defaultLvl + 0.5) return defaultLvl + 0.5;
+    return ideal;
   }
   double _getIdealLevel(int trafik, {int? l34, int? l45, int? l56, int? l67}) {
     int b34 = l34 ?? t3to4; // 3.0 -> 3.5 sınırı
@@ -926,9 +930,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     // Slot kapasiteleri
     List<int> slotKap = [];
     for (int i = 0; i < slotCount; i++) {
-      double sLvl = tamOtomatikDagitim 
-          ? _getIdealLevel(anlikTrafik[i % anlikTrafik.length].genelToplam) 
-          : gunlukSeviye;
+      double sLvl = _getEffectiveLevel(anlikTrafik[i % anlikTrafik.length].genelToplam, gunlukSeviye);
       int kap = getSektorlerByLevel(sLvl).length;
       slotKap.add(kap);
     }
