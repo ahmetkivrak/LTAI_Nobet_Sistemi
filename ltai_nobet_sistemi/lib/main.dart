@@ -527,10 +527,10 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     int b56 = l56 ?? t5to6; // S5 -> S6 sınırı (GND_N açılır)
     int b67 = l67 ?? t6to7; // S6 -> S7 sınırı (GND_C açılır)
 
-    if (trafik <= b34) return 3.0;
-    if (trafik <= b45) return 4.0;
-    if (trafik <= b56) return 5.0;
-    if (trafik <= b67) return 6.0;
+    if (trafik < b34) return 3.0;
+    if (trafik < b45) return 4.0;
+    if (trafik < b56) return 5.0;
+    if (trafik < b67) return 6.0;
     return 7.0;
   }
 
