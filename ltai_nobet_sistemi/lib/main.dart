@@ -1472,6 +1472,23 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       return false;
     }
 
+    // Yardımcı: Akşam slotları arasından en az dolu olanı seç
+    int? enAzDoluAksamSlot(List<int> slotlar) {
+      int? best;
+      double bestOran = 2.0; // 1.0'dan büyük = dolu
+      for (int si in slotlar) {
+        int kap = slotPozisyonlari[si]?.length ?? 0;
+        if (kap == 0) continue;
+        int mevcut = slotTakiKisiler[si]!.length;
+        double oran = mevcut / kap;
+        if (oran < 1.0 && oran < bestOran) {
+          bestOran = oran;
+          best = si;
+        }
+      }
+      return best;
+    }
+
     // ── HAVUZ-A: Gece1 (00:00-03:00) Seçilenler ──
     for (var k in gece1203Secilenler) {
       if (!geceListe.contains(k)) continue;
@@ -1479,10 +1496,9 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       if (geceSlotIdx != -1 && ataSlot(geceSlotIdx, k)) {
         kisiGeceSlot[k] = geceSlotIdx;
       }
-      // Akşam karşılığı: EN ERKEN akşam slotu
-      for (int asi in aksamSiralanmis) {
-        if (ataSlot(asi, k)) { kisiAksamSlot[k] = asi; break; }
-      }
+      // Akşam karşılığı: en az dolu akşam slotu
+      int? bestAksam = enAzDoluAksamSlot(aksamSiralanmis);
+      if (bestAksam != null && ataSlot(bestAksam, k)) { kisiAksamSlot[k] = bestAksam; }
     }
 
     // ── HAVUZ-B: ARA (03:00-05:30) Seçilenler ──
@@ -1492,10 +1508,9 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       if (araSlotIdx != -1 && ataSlot(araSlotIdx, k)) {
         kisiGeceSlot[k] = araSlotIdx;
       }
-      // Akşam karşılığı: erken akşam slotu (gece1 ile aynı olabilir)
-      for (int asi in aksamSiralanmis) {
-        if (ataSlot(asi, k)) { kisiAksamSlot[k] = asi; break; }
-      }
+      // Akşam karşılığı: en az dolu akşam slotu
+      int? bestAksam = enAzDoluAksamSlot(aksamSiralanmis);
+      if (bestAksam != null && ataSlot(bestAksam, k)) { kisiAksamSlot[k] = bestAksam; }
     }
 
     // ── HAVUZ-C: Sabah (05:30-08:00) + Son Saat (08:00-09:00) Seçilenler ──
@@ -1504,19 +1519,17 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       if (sabahSlotIdx != -1 && ataSlot(sabahSlotIdx, k)) {
         kisiGeceSlot[k] = sabahSlotIdx;
       }
-      // Akşam karşılığı: EN SON akşam slotu
-      for (int asi in aksamSiralanmis.reversed) {
-        if (ataSlot(asi, k)) { kisiAksamSlot[k] = asi; break; }
-      }
+      // Akşam karşılığı: en az dolu akşam slotu (son taraftan başla)
+      int? bestAksam = enAzDoluAksamSlot(aksamSiralanmis.reversed.toList());
+      if (bestAksam != null && ataSlot(bestAksam, k)) { kisiAksamSlot[k] = bestAksam; }
     }
     for (var k in gece0809Secilenler) {
       if (!geceListe.contains(k)) continue;
       if (sonSaatSlotIdx != -1 && ataSlot(sonSaatSlotIdx, k)) {
         kisiGeceSlot[k] = sonSaatSlotIdx;
       }
-      for (int asi in aksamSiralanmis.reversed) {
-        if (ataSlot(asi, k)) { kisiAksamSlot[k] = asi; break; }
-      }
+      int? bestAksam = enAzDoluAksamSlot(aksamSiralanmis.reversed.toList());
+      if (bestAksam != null && ataSlot(bestAksam, k)) { kisiAksamSlot[k] = bestAksam; }
     }
 
     // ── HAVUZ-D: Seçilmemiş Kalanlar ──
@@ -1533,12 +1546,11 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     // Yorgunluk sırasına göre sırala
     geceKalanHavuz.sort((a, b) => _getArsivYorgunlukOrtalamasi(a).compareTo(_getArsivYorgunlukOrtalamasi(b)));
 
-    // Kalanlar için akşam ataması
+    // Kalanlar için akşam ataması (en az dolu slota öncelik)
     for (var k in geceKalanHavuz) {
       if (kisiAksamSlot.containsKey(k)) continue;
-      for (int asi in aksamSiralanmis) {
-        if (ataSlot(asi, k)) { kisiAksamSlot[k] = asi; break; }
-      }
+      int? bestAksam = enAzDoluAksamSlot(aksamSiralanmis);
+      if (bestAksam != null && ataSlot(bestAksam, k)) { kisiAksamSlot[k] = bestAksam; }
     }
 
     // Kalanlar için gece ataması
