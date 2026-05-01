@@ -1412,12 +1412,19 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
            if (p.startsWith('SUP')) continue;
            int firstH = -1;
            int lastH = -1;
-           for (int i = 0; i < sTaramasi.length; i++) {
-              if (hPozisyonlar[sTaramasi[i]]!.contains(p)) {
+            for (int i = 0; i < sTaramasi.length; i++) {
+              List<String> currentHPos = hPozisyonlar[sTaramasi[i]]!;
+              bool exists = currentHPos.contains(p);
+              if (!exists && p == 'TWR_W' && currentHPos.contains('TWR')) exists = true;
+              if (!exists && p == 'GND_S' && currentHPos.contains('GND')) exists = true;
+              if (!exists && p == 'TWR' && currentHPos.contains('TWR_W')) exists = true;
+              if (!exists && p == 'GND' && currentHPos.contains('GND_S')) exists = true;
+              
+              if (exists) {
                  if (firstH == -1) firstH = i;
                  lastH = i;
               }
-           }
+            }
            if (firstH > 0) pozOtoNot[p] = " (${sTaramasi[firstH].toString().padLeft(2, '0')}:00)";
            else if (lastH >= 0 && lastH < sTaramasi.length - 1) pozOtoNot[p] = " (-${sTaramasi[lastH + 1].toString().padLeft(2, '0')}:00)";
         }
@@ -1765,7 +1772,14 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
             int firstH = -1;
             int lastH = -1;
             for(int i = 0; i < sTaramasi.length; i++) {
-               if(hPozisyonlar[sTaramasi[i]]!.contains(p)) {
+               List<String> currentHPos = hPozisyonlar[sTaramasi[i]]!;
+               bool exists = currentHPos.contains(p);
+               if (!exists && p == 'TWR_W' && currentHPos.contains('TWR')) exists = true;
+               if (!exists && p == 'GND_S' && currentHPos.contains('GND')) exists = true;
+               if (!exists && p == 'TWR' && currentHPos.contains('TWR_W')) exists = true;
+               if (!exists && p == 'GND' && currentHPos.contains('GND_S')) exists = true;
+
+               if(exists) {
                   if (firstH == -1) firstH = i;
                   lastH = i;
                }
