@@ -3657,7 +3657,9 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                       _durumBtn(k, 'E', Colors.blue, setD, "E"),
                     ],
                     if (isGunduzVardiyasi) _durumBtn(k, 'HAMAL', Colors.pinkAccent, setD, "KARINCA"), 
-                    if (isGunduzVardiyasi) _durumBtn(k, 'ENSECİ', Colors.lightBlueAccent, setD, "AĞUSTOS BÖCEĞİ")
+                    if (isGunduzVardiyasi) _durumBtn(k, 'ENSECİ', Colors.lightBlueAccent, setD, "AĞUSTOS BÖCEĞİ"),
+                    if (isGunduzVardiyasi) _ozelSecimBtn(k, 'İLK', Colors.purpleAccent, setD),
+                    if (isGunduzVardiyasi) _ozelSecimBtn(k, 'SON', Colors.tealAccent, setD),
                   ]),
                   
                   if (!pas) Padding(
@@ -3672,20 +3674,19 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                             if (isGunduzVardiyasi) _ozelSecimBtn(k, 'SUP ONLY', Colors.red.shade900, setD),
                           ],
                         ),
-                        const SizedBox(height: 6),
-                        Wrap(
-                          spacing: 4, runSpacing: 2,
-                          children: isGunduzVardiyasi ? [
-                            _ozelSecimBtn(k, 'İLK', Colors.purpleAccent, setD),
-                            _ozelSecimBtn(k, 'SON', Colors.tealAccent, setD),
-                          ] : [
-                            _ozelSecimBtn(k, '00⁰⁰-03⁰⁰', Colors.deepPurpleAccent, setD),
-                            _ozelSecimBtn(k, 'ARA', Colors.indigoAccent, setD),
-                            _ozelSecimBtn(k, '05³⁰-08⁰⁰', Colors.teal, setD),
-                            _ozelSecimBtn(k, '08⁰⁰-09⁰⁰', Colors.blueGrey, setD),
-                            _ozelSecimBtn(k, 'OFF', Colors.redAccent, setD),
-                          ],
-                        )
+                        if (!isGunduzVardiyasi) ...[
+                          const SizedBox(height: 6),
+                          Wrap(
+                            spacing: 4, runSpacing: 2,
+                            children: [
+                              _ozelSecimBtn(k, '00⁰⁰-03⁰⁰', Colors.deepPurpleAccent, setD),
+                              _ozelSecimBtn(k, 'ARA', Colors.indigoAccent, setD),
+                              _ozelSecimBtn(k, '05³⁰-08⁰⁰', Colors.teal, setD),
+                              _ozelSecimBtn(k, '08⁰⁰-09⁰⁰', Colors.blueGrey, setD),
+                              _ozelSecimBtn(k, 'OFF', Colors.redAccent, setD),
+                            ],
+                          )
+                        ]
                       ]
                     )
                   )
