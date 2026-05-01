@@ -474,6 +474,10 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
 
   List<BordArsivi> tamArsiv = [];
 
+  // ═══ HOTO (Devir/Teslim) Not Sistemi ═══
+  List<Map<String, dynamic>> _hotoNotlari = [];
+  // Her not: {ekip, vardiya, tarih, kategori, metin, fotoYolu, okunduMu, timestamp}
+
 
   DateTime _seciliTakvimTarihi = DateTime.now();
   String get _aktifTarihStr => "${_seciliTakvimTarihi.day.toString().padLeft(2, '0')}.${_seciliTakvimTarihi.month.toString().padLeft(2, '0')}.${_seciliTakvimTarihi.year}";
@@ -566,6 +570,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     _loadNotamPrefs(); // Rozet tercihlerini yükle
     _loadPersonelPrefs(); // Kişi listesi hafızadan yükle
     _loadTakvimIzinler().then((_) => _takvimdenIzinUygula()); // Takvim izinlerini yükle ve uygula
+    _hotoNotlariniYukle(); // HOTO notlarını yükle
   }
 
   void _tariheGoreVerileriGuncelle() {
@@ -2880,7 +2885,15 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
           IconButton(icon: const Icon(Icons.airplanemode_active, color: Colors.greenAccent), tooltip: "Trafik Sayısı", onPressed: _isiHaritasiniAc),
           IconButton(icon: const Text("🌦️", style: TextStyle(fontSize: 22)), tooltip: "LTAI Meteorological Info", onPressed: _airgramEkraniAc),
           IconButton(icon: const Icon(Icons.assignment_late, color: Colors.amber), tooltip: "NOTAM", onPressed: _notamEkraniAc),
-          IconButton(icon: const Icon(Icons.handshake, color: Colors.purpleAccent), tooltip: "HOTO (Devir/Teslim)", onPressed: () {}),
+          Stack(children: [
+            IconButton(icon: const Icon(Icons.handshake, color: Colors.purpleAccent), tooltip: "HOTO (Devir/Teslim)", onPressed: _hotoEkraniAc),
+            if (_okunmamisHotoSayisi > 0)
+              Positioned(right: 4, top: 4, child: Container(
+                padding: const EdgeInsets.all(3),
+                decoration: const BoxDecoration(color: Colors.redAccent, shape: BoxShape.circle),
+                child: Text('${_okunmamisHotoSayisi}', style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+              )),
+          ]),
           IconButton(icon: const Icon(Icons.calendar_month, color: Colors.cyanAccent), tooltip: "Nöbet Takvimi", onPressed: _nobetTakviminiAc),
           IconButton(icon: const Icon(Icons.settings, color: Colors.orangeAccent), tooltip: "Ayarlar ve Bord Planlama", onPressed: _kadroSecimEkraniAc),
           IconButton(icon: const Icon(Icons.logout, color: Colors.redAccent), tooltip: "Çıkış", onPressed: () {
@@ -2889,9 +2902,16 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
           const SizedBox(width: 10),
         ],
       ),
-      body: Center(
-        child: _anaEkranDizilimi(),
-      ), 
+      body: Stack(
+        children: [
+          Center(child: _anaEkranDizilimi()),
+          Positioned(
+            right: 12, bottom: 8,
+            child: Text('by Ahmet Kıvrak', 
+              style: TextStyle(color: Colors.white.withOpacity(0.15), fontSize: 9, fontStyle: FontStyle.italic, letterSpacing: 1)),
+          ),
+        ],
+      ),
     );
   }
 
@@ -5011,6 +5031,289 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                 }
               },
               child: const Text('Değiştir', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      });
+    });
+  }
+
+  // ═══════════════════════════════════════════════════
+  // HOTO (Devir/Teslim) Not Sistemi
+  // ═══════════════════════════════════════════════════
+  
+  Future<void> _hotoNotlariniYukle() async {
+    final prefs = await SharedPreferences.getInstance();
+    String? raw = prefs.getString('hoto_notlari');
+    if (raw != null) {
+      try {
+        List<dynamic> parsed = json.decode(raw);
+        _hotoNotlari = parsed.map((e) => Map<String, dynamic>.from(e)).toList();
+        // 24 saat eski notları temizle
+        int now = DateTime.now().millisecondsSinceEpoch;
+        _hotoNotlari.removeWhere((n) => (now - (n['timestamp'] ?? 0)) > 24 * 60 * 60 * 1000);
+      } catch (_) {}
+    }
+  }
+
+  Future<void> _hotoNotlariniKaydet() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('hoto_notlari', json.encode(_hotoNotlari));
+  }
+
+  int get _okunmamisHotoSayisi => _hotoNotlari.where((n) => 
+    n['ekip'] != _aktifEkip && !(n['okunduMu'] ?? false)
+  ).length;
+
+  void _hotoEkraniAc() {
+    _hotoNotlariniYukle().then((_) {
+      if (!mounted) return;
+      showDialog(context: context, builder: (ctx) {
+        return StatefulBuilder(builder: (ctx, setD) {
+          // Sadece diğer ekiplerden gelen notları göster (kendi notlarımızı da alt kısımda gösterebiliriz)
+          List<Map<String, dynamic>> gelenNotlar = _hotoNotlari.where((n) => n['ekip'] != _aktifEkip).toList();
+          List<Map<String, dynamic>> bizimNotlar = _hotoNotlari.where((n) => n['ekip'] == _aktifEkip).toList();
+          gelenNotlar.sort((a, b) => (b['timestamp'] ?? 0).compareTo(a['timestamp'] ?? 0));
+          bizimNotlar.sort((a, b) => (b['timestamp'] ?? 0).compareTo(a['timestamp'] ?? 0));
+
+          Map<String, Color> katRenk = {'OPS': Colors.redAccent, 'TRF': Colors.amber, 'GNL': Colors.greenAccent};
+          Map<String, String> katAd = {'OPS': '🔴 Operasyonel', 'TRF': '🟡 Trafik', 'GNL': '🟢 Genel'};
+
+          Widget notKarti(Map<String, dynamic> not, bool bizim) {
+            String kat = not['kategori'] ?? 'GNL';
+            Color renk = katRenk[kat] ?? Colors.white54;
+            bool okundu = not['okunduMu'] ?? false;
+            String ekip = not['ekip'] ?? '?';
+            String vardiya = not['vardiya'] ?? '';
+            String tarih = not['tarih'] ?? '';
+            String metin = not['metin'] ?? '';
+            String? foto = not['fotoYolu'];
+            
+            DateTime ts = DateTime.fromMillisecondsSinceEpoch(not['timestamp'] ?? 0);
+            String saat = "${ts.hour.toString().padLeft(2, '0')}:${ts.minute.toString().padLeft(2, '0')}";
+            int dakikaOnce = DateTime.now().difference(ts).inMinutes;
+            String gecenSure = dakikaOnce < 60 ? "${dakikaOnce}dk önce" : "${dakikaOnce ~/ 60}sa önce";
+            
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: okundu || bizim ? Colors.white.withOpacity(0.03) : renk.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: okundu || bizim ? Colors.white12 : renk.withOpacity(0.4)),
+              ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: (EkipVerisi.renkler[ekip] ?? Colors.grey).withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text('$ekip Ekibi', style: TextStyle(
+                      color: EkipVerisi.renkler[ekip], fontSize: 10, fontWeight: FontWeight.bold)),
+                  ),
+                  const SizedBox(width: 6),
+                  Text('$vardiya · $tarih', style: TextStyle(color: Colors.white38, fontSize: 9)),
+                  const Spacer(),
+                  Text(gecenSure, style: TextStyle(color: Colors.white30, fontSize: 9)),
+                  if (!bizim && !okundu) ...[
+                    const SizedBox(width: 6),
+                    GestureDetector(
+                      onTap: () => setD(() {
+                        not['okunduMu'] = true;
+                        _hotoNotlariniKaydet();
+                        setState(() {});
+                      }),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.greenAccent.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text('Görüldü ✓', style: TextStyle(color: Colors.greenAccent, fontSize: 9, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ],
+                  if (bizim) ...[
+                    const SizedBox(width: 6),
+                    GestureDetector(
+                      onTap: () => setD(() {
+                        _hotoNotlari.remove(not);
+                        _hotoNotlariniKaydet();
+                        setState(() {});
+                      }),
+                      child: const Icon(Icons.delete_outline, size: 16, color: Colors.redAccent),
+                    ),
+                  ],
+                ]),
+                const SizedBox(height: 4),
+                Row(children: [
+                  Text(katAd[kat] ?? kat, style: TextStyle(color: renk, fontSize: 9, fontWeight: FontWeight.bold)),
+                ]),
+                const SizedBox(height: 6),
+                Text(metin, style: const TextStyle(color: Colors.white, fontSize: 12)),
+                if (foto != null && foto.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  const Row(children: [
+                    Icon(Icons.photo, size: 14, color: Colors.white38),
+                    SizedBox(width: 4),
+                    Text('Fotoğraf ekli', style: TextStyle(color: Colors.white38, fontSize: 10)),
+                  ]),
+                ],
+              ]),
+            );
+          }
+
+          return AlertDialog(
+            backgroundColor: const Color(0xFF111111),
+            titlePadding: const EdgeInsets.fromLTRB(16, 12, 8, 0),
+            title: Row(children: [
+              const Icon(Icons.handshake, color: Colors.purpleAccent, size: 22),
+              const SizedBox(width: 8),
+              const Text('HOTO — Devir/Teslim', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.add_circle, color: Colors.purpleAccent, size: 22),
+                tooltip: 'Yeni Not Yaz',
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _hotoNotYazDialog();
+                },
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, color: Colors.white30, size: 20),
+                onPressed: () => Navigator.pop(ctx),
+              ),
+            ]),
+            content: SizedBox(
+              width: 420, height: 500,
+              child: SingleChildScrollView(child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (gelenNotlar.isNotEmpty) ...[
+                    Text('📥 Gelen Devir Notları', style: TextStyle(color: Colors.purpleAccent.shade100, fontSize: 12, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    ...gelenNotlar.map((n) => notKarti(n, false)),
+                  ],
+                  if (gelenNotlar.isEmpty)
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      child: const Center(child: Text('Bekleyen devir notu yok', style: TextStyle(color: Colors.white24, fontSize: 12))),
+                    ),
+                  const SizedBox(height: 16),
+                  if (bizimNotlar.isNotEmpty) ...[
+                    Text('📤 Bizim Yazdığımız Notlar', style: TextStyle(color: Colors.white38, fontSize: 12, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    ...bizimNotlar.map((n) => notKarti(n, true)),
+                  ],
+                ],
+              )),
+            ),
+          );
+        });
+      });
+    });
+  }
+
+  void _hotoNotYazDialog() {
+    TextEditingController metinC = TextEditingController();
+    String kategori = 'OPS';
+    
+    showDialog(context: context, builder: (ctx) {
+      return StatefulBuilder(builder: (ctx, setD) {
+        Map<String, Color> katRenk = {'OPS': Colors.redAccent, 'TRF': Colors.amber, 'GNL': Colors.greenAccent};
+        Map<String, String> katAd = {'OPS': '🔴 Operasyonel', 'TRF': '🟡 Trafik', 'GNL': '🟢 Genel'};
+        String vardiyaTxt = isGunduzVardiyasi ? 'Gündüz' : 'Gece';
+        
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          title: Row(children: [
+            const Icon(Icons.edit_note, color: Colors.purpleAccent, size: 20),
+            const SizedBox(width: 8),
+            Text('$_aktifEkip Ekibi — Devir Notu', style: const TextStyle(color: Colors.white, fontSize: 14)),
+          ]),
+          content: SizedBox(width: 380, child: Column(mainAxisSize: MainAxisSize.min, children: [
+            // Otomatik bilgiler
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Row(children: [
+                Icon(Icons.info_outline, size: 14, color: EkipVerisi.renkler[_aktifEkip]),
+                const SizedBox(width: 6),
+                Text('$_aktifEkip Ekibi · $vardiyaTxt · $_aktifTarihStr', 
+                  style: TextStyle(color: EkipVerisi.renkler[_aktifEkip], fontSize: 11, fontWeight: FontWeight.bold)),
+              ]),
+            ),
+            const SizedBox(height: 12),
+            // Kategori seçimi
+            Row(children: katAd.entries.map((e) => Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: GestureDetector(
+                onTap: () => setD(() => kategori = e.key),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: kategori == e.key ? katRenk[e.key]!.withOpacity(0.2) : Colors.transparent,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: kategori == e.key ? katRenk[e.key]! : Colors.white24,
+                      width: kategori == e.key ? 1.5 : 0.5,
+                    ),
+                  ),
+                  child: Text(e.value, style: TextStyle(
+                    color: kategori == e.key ? katRenk[e.key] : Colors.white38,
+                    fontSize: 10, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            )).toList()),
+            const SizedBox(height: 12),
+            // Metin
+            TextField(
+              controller: metinC,
+              maxLines: 5,
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+              decoration: InputDecoration(
+                hintText: 'Devir notunu yazın...',
+                hintStyle: TextStyle(color: Colors.white.withOpacity(0.2)),
+                enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.white24), borderRadius: BorderRadius.circular(8)),
+                focusedBorder: OutlineInputBorder(borderSide: const BorderSide(color: Colors.purpleAccent), borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+          ])),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx),
+              child: const Text('İptal', style: TextStyle(color: Colors.grey))),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.purpleAccent),
+              icon: const Icon(Icons.send, size: 16, color: Colors.white),
+              onPressed: () {
+                String metin = metinC.text.trim();
+                if (metin.isEmpty) return;
+                
+                setState(() {
+                  _hotoNotlari.add({
+                    'ekip': _aktifEkip,
+                    'vardiya': isGunduzVardiyasi ? 'Gündüz' : 'Gece',
+                    'tarih': _aktifTarihStr,
+                    'kategori': kategori,
+                    'metin': metin,
+                    'fotoYolu': '',
+                    'okunduMu': false,
+                    'timestamp': DateTime.now().millisecondsSinceEpoch,
+                  });
+                });
+                _hotoNotlariniKaydet();
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Devir notu kaydedildi ✓'), 
+                    backgroundColor: Colors.purpleAccent, duration: Duration(seconds: 2)),
+                );
+              },
+              label: const Text('Gönder', style: TextStyle(color: Colors.white)),
             ),
           ],
         );
