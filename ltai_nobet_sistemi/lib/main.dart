@@ -293,15 +293,7 @@ class _EkipSecimSayfasiState extends State<EkipSecimSayfasi> {
                   ),
                   child: Column(
                     children: [
-                      Text(
-                        '$_secilenEkip Ekibi Girişi',
-                        style: TextStyle(
-                          color: EkipVerisi.renkler[_secilenEkip]!,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
+
                       TextField(
                         controller: _sifreController,
                         obscureText: true,
@@ -2111,7 +2103,14 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     // BK kişisi aktif kadroda KALIR (shift çalışır, sadece son slota atanamaz)
 
     double tGLvl = gunlukSeviye;
-    // Tablo başlık sektörleri: tamOtomatik modda hakim seviyeye göre,
+    if (anlikTrafik.isNotEmpty) {
+      for (int i = 0; i < saatler.length; i++) {
+        int trf = anlikTrafik[i % anlikTrafik.length].genelToplam;
+        double eLvl = _getEffectiveLevel(trf, gunlukSeviye);
+        if (eLvl > tGLvl) tGLvl = eLvl;
+      }
+    }
+    // Tablo başlık sektörleri: gün içinde ulaşılan en yüksek efektif seviyeye göre,
     // ama minimum 4 pozisyon göster (DEL, TWR, GND, SUP)
     List<String> tabloBaslikSektorleri = getSektorlerByLevel(tGLvl.clamp(4.0, 7.0));
     
