@@ -95,13 +95,34 @@ class EkipVerisi {
     'E': ['EL', 'HB', 'SE', 'EK', 'IA', 'RC', 'IG', 'KU', 'HM', 'YZ'],
   };
 
-  static const Map<String, String> sifreler = {
+  static const String masterSifre = 'ltai2026master';
+
+  static Map<String, String> sifreler = {
     'A': 'a2026',
     'B': 'b2026',
     'C': 'c2026',
     'D': 'd2026',
     'E': 'e2026',
   };
+
+  /// Kaydedilmiş şifreleri yükle
+  static Future<void> sifreleriYukle() async {
+    final prefs = await SharedPreferences.getInstance();
+    for (var ekip in ['A', 'B', 'C', 'D', 'E']) {
+      String? saved = prefs.getString('sifre_$ekip');
+      if (saved != null) sifreler[ekip] = saved;
+    }
+  }
+
+  /// Ekip şifresini değiştir ve kaydet
+  static Future<bool> sifreDegistir(String ekip, String eskiSifre, String yeniSifre) async {
+    if (sifreler[ekip] != eskiSifre && eskiSifre != masterSifre) return false;
+    if (yeniSifre.length < 4) return false;
+    sifreler[ekip] = yeniSifre;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('sifre_$ekip', yeniSifre);
+    return true;
+  }
 
   static const Map<String, Color> renkler = {
     'A': Color(0xFF4CAF50),
@@ -146,6 +167,13 @@ class _EkipSecimSayfasiState extends State<EkipSecimSayfasi> {
   String? _secilenEkip;
   final TextEditingController _sifreController = TextEditingController();
   String _hata = '';
+  bool _sifrelerYuklendi = false;
+
+  @override
+  void initState() {
+    super.initState();
+    EkipVerisi.sifreleriYukle().then((_) => setState(() => _sifrelerYuklendi = true));
+  }
 
   void _ekipSec(String ekip) {
     setState(() {
@@ -158,10 +186,11 @@ class _EkipSecimSayfasiState extends State<EkipSecimSayfasi> {
   void _girisYap() {
     if (_secilenEkip == null) return;
     String sifre = _sifreController.text.trim();
-    if (sifre == EkipVerisi.sifreler[_secilenEkip]) {
+    bool isMaster = (sifre == EkipVerisi.masterSifre);
+    if (sifre == EkipVerisi.sifreler[_secilenEkip] || isMaster) {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => AnaSayfa(ekip: _secilenEkip!)),
+        MaterialPageRoute(builder: (_) => AnaSayfa(ekip: _secilenEkip!, isMaster: isMaster)),
       );
     } else {
       setState(() => _hata = 'Şifre yanlış');
@@ -328,7 +357,8 @@ class LtaiApp extends StatelessWidget {
 
 class AnaSayfa extends StatefulWidget {
   final String ekip;
-  const AnaSayfa({super.key, required this.ekip});
+  final bool isMaster;
+  const AnaSayfa({super.key, required this.ekip, this.isMaster = false});
   @override
   State<AnaSayfa> createState() => _AnaSayfaState();
 }
@@ -3710,7 +3740,14 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
             ),
           ])),
         ])),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text("KAPAT"))],
+        actions: [
+          TextButton.icon(
+            onPressed: () { Navigator.pop(context); _sifreDegistirDialog(); },
+            icon: const Icon(Icons.lock, size: 16, color: Colors.orangeAccent),
+            label: const Text("Şifre Değiştir", style: TextStyle(color: Colors.orangeAccent, fontSize: 11)),
+          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("KAPAT")),
+        ],
       );
     }));
   }
@@ -4884,5 +4921,100 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
         )
       )
     );
+  }
+
+  void _sifreDegistirDialog() {
+    TextEditingController eskiC = TextEditingController();
+    TextEditingController yeniC = TextEditingController();
+    TextEditingController yeniC2 = TextEditingController();
+    String hata = '';
+    
+    showDialog(context: context, builder: (ctx) {
+      return StatefulBuilder(builder: (ctx, setD) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          title: Row(children: [
+            Icon(Icons.lock, color: EkipVerisi.renkler[_aktifEkip], size: 20),
+            const SizedBox(width: 8),
+            Text('$_aktifEkip Ekibi Şifre Değiştir', 
+              style: const TextStyle(color: Colors.white, fontSize: 14)),
+          ]),
+          content: SizedBox(width: 300, child: Column(mainAxisSize: MainAxisSize.min, children: [
+            TextField(
+              controller: eskiC,
+              obscureText: true,
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+              decoration: InputDecoration(
+                labelText: 'Mevcut Şifre',
+                labelStyle: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12),
+                enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+                focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: EkipVerisi.renkler[_aktifEkip]!)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: yeniC,
+              obscureText: true,
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+              decoration: InputDecoration(
+                labelText: 'Yeni Şifre (en az 4 karakter)',
+                labelStyle: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12),
+                enabledBorder: const OutlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+                focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: EkipVerisi.renkler[_aktifEkip]!)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: yeniC2,
+              obscureText: true,
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+              decoration: InputDecoration(
+                labelText: 'Yeni Şifre (Tekrar)',
+                labelStyle: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12),
+                enabledBorder: const OutlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+                focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: EkipVerisi.renkler[_aktifEkip]!)),
+              ),
+            ),
+            if (hata.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(hata, style: const TextStyle(color: Colors.redAccent, fontSize: 11)),
+            ],
+          ])),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx),
+              child: const Text('İptal', style: TextStyle(color: Colors.grey))),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: EkipVerisi.renkler[_aktifEkip]),
+              onPressed: () async {
+                String eski = eskiC.text.trim();
+                String yeni = yeniC.text.trim();
+                String yeni2 = yeniC2.text.trim();
+                
+                if (yeni != yeni2) {
+                  setD(() => hata = 'Yeni şifreler eşleşmiyor');
+                  return;
+                }
+                if (yeni.length < 4) {
+                  setD(() => hata = 'Şifre en az 4 karakter olmalı');
+                  return;
+                }
+                
+                bool ok = await EkipVerisi.sifreDegistir(_aktifEkip, eski, yeni);
+                if (ok) {
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('$_aktifEkip Ekibi şifresi değiştirildi ✓'),
+                      backgroundColor: Colors.green.shade700, duration: const Duration(seconds: 2)),
+                  );
+                } else {
+                  setD(() => hata = 'Mevcut şifre yanlış');
+                }
+              },
+              child: const Text('Değiştir', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      });
+    });
   }
 }
