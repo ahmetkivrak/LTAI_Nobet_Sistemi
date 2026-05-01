@@ -3722,7 +3722,11 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                tooltip: "İstatistikler (Kürek Mahkumları)",
                onPressed: () { Navigator.pop(context); _arsivVeIstatistikPenceresiniAc(hedefSekme: 1); }
             ),
-
+            IconButton(
+               icon: Icon(Icons.lock_outlined, color: isGunduzVardiyasi ? Colors.orangeAccent : Colors.indigoAccent),
+               tooltip: "Şifre Değiştir",
+               onPressed: () { Navigator.pop(context); _sifreDegistirDialog(); }
+            ),
           ])),
         ])),
         actions: [
@@ -4900,9 +4904,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
           backgroundColor: const Color(0xFF1A1A1A),
           title: Row(children: [
             Icon(Icons.lock, color: EkipVerisi.renkler[_aktifEkip], size: 20),
-            const SizedBox(width: 8),
-            Text('$_aktifEkip Ekibi Şifre Değiştir', 
-              style: const TextStyle(color: Colors.white, fontSize: 14)),
           ]),
           content: SizedBox(width: 300, child: Column(mainAxisSize: MainAxisSize.min, children: [
             TextField(
