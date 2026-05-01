@@ -3499,10 +3499,20 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
               if (sonBord.istatistik[k]?['IS_ENSECI'] == true) gercekEnseci++;
             }
             
-            String gMetin = "⚖️ Çoğunluk: $majT Tur | Tabloda: $gercekHamal Karınca - $gercekEnseci Ağustos Böceği";
-            if (manuelHamal > 0 || manuelEnseci > 0) {
-              gMetin += " (Senin Seçtiğin: ${manuelHamal}K ${manuelEnseci}A)";
+            String kString = "";
+            if (gercekHamal > 0) {
+              if (manuelHamal == gercekHamal) kString = "$gercekHamal Karınca ✅";
+              else kString = "$gercekHamal Karınca ($manuelHamal/$gercekHamal)";
             }
+            
+            String eString = "";
+            if (gercekEnseci > 0) {
+              if (manuelEnseci == gercekEnseci) eString = "$gercekEnseci Ağustos Böceği ✅";
+              else eString = "$gercekEnseci Ağustos Böceği ($manuelEnseci/$gercekEnseci)";
+            }
+            
+            String reqString = [kString, eString].where((s) => s.isNotEmpty).join(" · ");
+            String gMetin = "⚖️ Çoğunluk: $majT Tur" + (reqString.isNotEmpty ? " | $reqString" : "");
             return Padding(
               padding: const EdgeInsets.only(top: 8), 
               child: Text(
