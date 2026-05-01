@@ -3591,26 +3591,63 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                 String k = tumPersonelHavuzu[i]; bool pas = gunlukDurum[k]!.contains('OFF') || gunlukDurum[k]!.contains('OJTI');
                 return Card(color: Colors.white.withOpacity(0.04), child: Padding(padding: const EdgeInsets.all(10), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      GestureDetector(onTap: () => _isimDuzenle(i, setD), child: Text(k, style: TextStyle(fontWeight: FontWeight.bold, decoration: TextDecoration.underline, color: pas ? Colors.white24 : Colors.white))),
-                      if (!gunlukDurum[k]!.contains('OFF')) ...[
-                        const SizedBox(width: 8),
-                        InkWell(
-                          onTap: () => setD(() {
-                            if (gunlukDurum[k]!.contains('OJTI')) {
-                              gunlukDurum[k]!.remove('OJTI');
-                            } else {
-                              gunlukDurum[k]!.add('OJTI');
-                            }
-                            _gruplariGuncelle(arsiveKaydet: false);
-                          }),
-                          child: Padding(
-                            padding: const EdgeInsets.all(4.0),
-                            child: Icon(Icons.school, size: 18, color: gunlukDurum[k]!.contains('OJTI') ? Colors.cyanAccent : Colors.white24),
-                          )
-                        )
-                      ]
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          GestureDetector(onTap: () => _isimDuzenle(i, setD), child: Text(k, style: TextStyle(fontWeight: FontWeight.bold, decoration: TextDecoration.underline, color: pas ? Colors.white24 : Colors.white))),
+                          if (!gunlukDurum[k]!.contains('OFF')) ...[
+                            const SizedBox(width: 8),
+                            InkWell(
+                              onTap: () => setD(() {
+                                if (gunlukDurum[k]!.contains('OJTI')) {
+                                  gunlukDurum[k]!.remove('OJTI');
+                                } else {
+                                  gunlukDurum[k]!.add('OJTI');
+                                }
+                                _gruplariGuncelle(arsiveKaydet: false);
+                              }),
+                              child: Padding(
+                                padding: const EdgeInsets.all(4.0),
+                                child: Icon(Icons.school, size: 18, color: gunlukDurum[k]!.contains('OJTI') ? Colors.cyanAccent : Colors.white24),
+                              )
+                            )
+                          ]
+                        ]
+                      ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (i > 0)
+                            IconButton(
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              icon: const Icon(Icons.arrow_upward, size: 18, color: Colors.white54),
+                              onPressed: () => setD(() {
+                                String temp = tumPersonelHavuzu[i];
+                                tumPersonelHavuzu[i] = tumPersonelHavuzu[i - 1];
+                                tumPersonelHavuzu[i - 1] = temp;
+                                _savePersonelPrefs();
+                                _gruplariGuncelle(arsiveKaydet: false);
+                              }),
+                            ),
+                          const SizedBox(width: 12),
+                          if (i < tumPersonelHavuzu.length - 1)
+                            IconButton(
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              icon: const Icon(Icons.arrow_downward, size: 18, color: Colors.white54),
+                              onPressed: () => setD(() {
+                                String temp = tumPersonelHavuzu[i];
+                                tumPersonelHavuzu[i] = tumPersonelHavuzu[i + 1];
+                                tumPersonelHavuzu[i + 1] = temp;
+                                _savePersonelPrefs();
+                                _gruplariGuncelle(arsiveKaydet: false);
+                              }),
+                            ),
+                        ],
+                      )
                     ]
                   ),
                   const SizedBox(height: 10),
