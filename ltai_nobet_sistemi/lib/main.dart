@@ -350,7 +350,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     return saatSenaryosu == 1 ? geceKlasik : geceAlengirli;
   }
 
-  int t3to4 = 25; int t4to5 = 36; int t5to6 = 50; int t6to7 = 70;
+  int t3to4 = 28; int t4to5 = 35; int t5to6 = 42; int t6to7 = 55;
   
   Map<String, List<TrafikVerisi>> _haftalikTrafikKasa = {};
   
@@ -420,12 +420,12 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
 
   bool tamOtomatikDagitim = true;
   bool isPinned = false;
-  double gunlukSeviye = 4.0;
+  double gunlukSeviye = 3.0;
   double get hakimSeviye {
-    if (anlikTrafik24.isEmpty || anlikTrafik.isEmpty) return 4.0;
+    if (anlikTrafik24.isEmpty || anlikTrafik.isEmpty) return 3.0;
     Map<double, int> counts = {};
     for (var t in anlikTrafik) { double lvl = _getIdealLevel(t.genelToplam); counts[lvl] = (counts[lvl] ?? 0) + 1; }
-    int maxCount = 0; double mode = 4.0;
+    int maxCount = 0; double mode = 3.0;
     counts.forEach((lvl, count) { if (count > maxCount) { maxCount = count; mode = lvl; } });
     return mode;
   }
@@ -464,11 +464,11 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     
     double ideal = _getIdealLevel(trafik);
     
-    // Kullanıcı bir senaryo seçtiyse (anchor), AI açık olsa bile +/- 0.5 sınırı uygula
+    // Kullanıcı bir senaryo seçtiyse (anchor), AI açık olsa bile ±1 kademe sınırı uygula
     bool hasAnchor = (defaultLvl != hakimSeviye);
     if (hasAnchor) {
-      if (ideal < defaultLvl - 0.5) return defaultLvl - 0.5;
-      if (ideal > defaultLvl + 0.5) return defaultLvl + 0.5;
+      if (ideal < defaultLvl - 1.0) return defaultLvl - 1.0;
+      if (ideal > defaultLvl + 1.0) return defaultLvl + 1.0;
       return ideal;
     }
     
@@ -476,16 +476,16 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     return ideal;
   }
   double _getIdealLevel(int trafik, {int? l34, int? l45, int? l56, int? l67}) {
-    int b34 = l34 ?? t3to4; // 3.0 -> 3.5 sınırı
-    int b45 = l45 ?? t4to5; // 3.5 -> 4.0 sınırı
-    int b56 = l56 ?? t5to6; // 4.0 -> 4.5 sınırı
-    int b67 = l67 ?? t6to7; // 4.5 -> 5.0 sınırı
+    int b34 = l34 ?? t3to4; // S3 -> S4 sınırı (GND açılır)
+    int b45 = l45 ?? t4to5; // S4 -> S5 sınırı (TWR_E açılır)
+    int b56 = l56 ?? t5to6; // S5 -> S6 sınırı (GND_N açılır)
+    int b67 = l67 ?? t6to7; // S6 -> S7 sınırı (GND_C açılır)
 
     if (trafik <= b34) return 3.0;
-    if (trafik <= b45) return 3.5;
-    if (trafik <= b56) return 4.0;
-    if (trafik <= b67) return 4.5;
-    return 5.0;
+    if (trafik <= b45) return 4.0;
+    if (trafik <= b56) return 5.0;
+    if (trafik <= b67) return 6.0;
+    return 7.0;
   }
 
   @override
@@ -3502,11 +3502,15 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
           SingleChildScrollView(
             scrollDirection: Axis.horizontal, 
             child: Row(
-              children: [3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7].map((v) { 
+              children: [3, 4, 5, 6, 7].map((v) { 
                 bool iS = gunlukSeviye == v.toDouble();
                 bool iA = (v.toDouble() == hakimSeviye) && tamOtomatikDagitim && !iS;
                 bool isAnchor = iS && (gunlukSeviye != hakimSeviye) && !isPinned;
                 bool isPin = iS && isPinned;
+                
+                // Sektör bilgisi
+                List<String> sektorler = getSektorlerByLevel(v.toDouble());
+                String sektorInfo = '${sektorler.length}p';
                 
                 // Renk belirleme
                 Color bgColor = Colors.transparent;
@@ -3543,10 +3547,8 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                   child: InkWell(
                     onTap: () => setD(() { 
                       if (gunlukSeviye == v.toDouble()) {
-                        // Aynı senaryoya tekrar tıklama → pin toggle
                         isPinned = !isPinned;
                       } else {
-                        // Farklı senaryo seçimi → anchor seviye belirle, AI açık kalsın
                         gunlukSeviye = v.toDouble(); 
                         isPinned = false;
                       }
@@ -3561,7 +3563,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                         boxShadow: shadows
                       ), 
                       child: Text(
-                        v % 1 == 0 ? "S${v.toInt()}$suffix" : "S$v$suffix", 
+                        "S${v.toInt()}$suffix ($sektorInfo)", 
                         style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 10)
                       )
                     )
