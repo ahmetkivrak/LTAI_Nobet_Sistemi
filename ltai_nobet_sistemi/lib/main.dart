@@ -3758,15 +3758,15 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                tooltip: "İstatistikler (Kürek Mahkumları)",
                onPressed: () { Navigator.pop(context); _arsivVeIstatistikPenceresiniAc(hedefSekme: 1); }
             ),
+            IconButton(
+               icon: Icon(Icons.lock_outlined, color: isGunduzVardiyasi ? Colors.orangeAccent : Colors.indigoAccent),
+               tooltip: "Şifre Değiştir",
+               onPressed: () { Navigator.pop(context); _sifreDegistirDialog(); }
+            ),
           ])),
         ])),
         actions: [
-          TextButton.icon(
-            onPressed: () { Navigator.pop(context); _sifreDegistirDialog(); },
-            icon: const Icon(Icons.lock, size: 16, color: Colors.orangeAccent),
-            label: const Text("Şifre Değiştir", style: TextStyle(color: Colors.orangeAccent, fontSize: 11)),
-          ),
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("KAPAT")),
+          IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close, color: Colors.white38, size: 20)),
         ],
       );
     }));
@@ -5131,7 +5131,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                           color: Colors.greenAccent.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(4),
                         ),
-                        child: const Text('Görüldü ✓', style: TextStyle(color: Colors.greenAccent, fontSize: 9, fontWeight: FontWeight.bold)),
+                        child: const Text('✓', style: TextStyle(color: Colors.greenAccent, fontSize: 12, fontWeight: FontWeight.bold)),
                       ),
                     ),
                   ],
@@ -5171,7 +5171,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
             title: Row(children: [
               const Icon(Icons.handshake, color: Colors.purpleAccent, size: 22),
               const SizedBox(width: 8),
-              const Text('HOTO — Devir/Teslim', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
+              const Text('HOTO', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
               const Spacer(),
               IconButton(
                 icon: const Icon(Icons.add_circle, color: Colors.purpleAccent, size: 22),
@@ -5192,8 +5192,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (gelenNotlar.isNotEmpty) ...[
-                    Text('📥 Gelen Devir Notları', style: TextStyle(color: Colors.purpleAccent.shade100, fontSize: 12, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
                     ...gelenNotlar.map((n) => notKarti(n, false)),
                   ],
                   if (gelenNotlar.isEmpty)
@@ -5201,10 +5199,8 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                       padding: const EdgeInsets.all(20),
                       child: const Center(child: Text('Bekleyen devir notu yok', style: TextStyle(color: Colors.white24, fontSize: 12))),
                     ),
-                  const SizedBox(height: 16),
                   if (bizimNotlar.isNotEmpty) ...[
-                    Text('📤 Bizim Yazdığımız Notlar', style: TextStyle(color: Colors.white38, fontSize: 12, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
+                    const Divider(color: Colors.white12, height: 24),
                     ...bizimNotlar.map((n) => notKarti(n, true)),
                   ],
                 ],
