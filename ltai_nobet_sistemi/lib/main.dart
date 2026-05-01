@@ -424,9 +424,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
   Set<String> _sonSecilenlerGece = {};
   Set<String> get sonSecilenler => isGunduzVardiyasi ? _sonSecilenlerGunduz : _sonSecilenlerGece;
 
-  Set<String> _bizimleKalSecilenlerGunduz = {};
-  Set<String> _bizimleKalSecilenlerGece = {};
-  Set<String> get bizimleKalSecilenler => isGunduzVardiyasi ? _bizimleKalSecilenlerGunduz : _bizimleKalSecilenlerGece;
 
   Set<String> _supOnlySecilenlerGunduz = {};
   Set<String> _supOnlySecilenlerGece = {};
@@ -1088,27 +1085,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       return _numAvg(a).compareTo(_numAvg(b));
     });
     
-    // ─── BİZİMLE KAL (BK) ATAMASI ───
-    // BK kişisinin son slottan (slotCount - 1) otomatik silineceği için 
-    // eksik kadro ("-") bırakmaması adına son slotu içermeyen numaralar verilir.
-    Set<String> aktifBKPersonel = this.bizimleKalSecilenler.where((k) => aktifPersonel.contains(k)).toSet();
-    for (var k in aktifBKPersonel) {
-      if (kisiNumara.containsKey(k)) continue;
-      
-      List<int> bkIcinUygun = tumNumaralar.where((n) {
-        if (kullanilanlar.contains(n)) return false;
-        return !(numaraSlotlari[n]?.contains(slotCount - 1) ?? false);
-      }).toList();
 
-      if (bkIcinUygun.isNotEmpty) {
-        kisiNumara[k] = bkIcinUygun.first;
-        kullanilanlar.add(bkIcinUygun.first);
-      } else {
-        int mecburi = tumNumaralar.firstWhere((n) => !kullanilanlar.contains(n));
-        kisiNumara[k] = mecburi;
-        kullanilanlar.add(mecburi);
-      }
-    }
     
     // ─── KARINCA → en çok tur çalışan numaraya ───
     karincalar.sort((a, b) => _getArsivYorgunlukOrtalamasi(a).compareTo(_getArsivYorgunlukOrtalamasi(b)));
@@ -1742,8 +1719,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
   /// Döndürür: {slotIndex: {pozisyon: kişi, ...}, ...}
   Map<int, Map<String, String>> _phase2PozisyonAtama(
     Map<int, List<String>> slotAtamalari, 
-    List<String> aktifPersonel,
-    Set<String> aktifBK
+    List<String> aktifPersonel
   ) {
     int slotCount = saatler.length;
     Map<int, Map<String, String>> gunlukPlan = {};
@@ -1806,10 +1782,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
 
       List<String> kisiler = List.from(slotAtamalari[slot] ?? []);
       
-      // BK kişisi son slotta pozisyona oturmaz (tek BK kuralı)
-      if (slot == slotCount - 1) {
-        kisiler.removeWhere((k) => aktifBK.contains(k));
-      }
+
       
       // Personel eksik olduğunda TWR yerine GND'nin boş kalması için 
       // öncelik sırası korunmalıdır. (tersine çevrilmez - score sistemi rotasyonu yapıyor zaten)
@@ -2060,48 +2033,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
   void _arsiveOtomatikKaydet({bool kaydet = true}) {
     if (anlikTrafik.isEmpty) return;
     
-    Set<String> aktifBK = isGunduzVardiyasi ? Set.from(bizimleKalSecilenler) : {};
     var aktifPersonel = tumPersonelHavuzu.where((k) => !gunlukDurum[k]!.contains('OFF') && !gunlukDurum[k]!.contains('OJTI')).toList();
-
-    if (isGunduzVardiyasi && aktifBK.isEmpty && tamOtomatikDagitim) {
-      List<BordArsivi> ayniTipArsiv = tamArsiv.where((a) {
-        if (a.satirlar.isEmpty) return false;
-        String ilkSaat = a.satirlar.first.first;
-        bool arsivGunduz = ilkSaat.startsWith("08:") || ilkSaat.startsWith("09:") || ilkSaat.startsWith("10:");
-        return arsivGunduz == isGunduzVardiyasi;
-      }).toList();
-
-      Set<String> son4BK = {};
-      int count = 0;
-      for (int i = ayniTipArsiv.length - 1; i >= 0 && count < 4; i--) {
-        String bk = ayniTipArsiv[i].bizimleKal;
-        if (bk != "-") son4BK.addAll(bk.split(', ').map((e) => e.trim()));
-        count++;
-      }
-
-      Map<String, int> totalBK = {for (var k in tumPersonelHavuzu) k: 0};
-      for (var a in tamArsiv) {
-        if (a.bizimleKal != "-") {
-          for (var p in a.bizimleKal.split(', ').map((e) => e.trim())) {
-            if (totalBK.containsKey(p)) totalBK[p] = totalBK[p]! + 1;
-          }
-        }
-      }
-
-      var adaylar = aktifPersonel.where((p) => !son4BK.contains(p)).toList();
-      if (adaylar.isNotEmpty) {
-        adaylar.sort((a, b) => totalBK[a]!.compareTo(totalBK[b]!));
-        aktifBK.add(adaylar.first);
-      } else if (aktifPersonel.isNotEmpty) {
-        // Tüm aktif personel son 4'te BK görmüş — en az toplam BK olan seçilir
-        List<String> hepsi = List.from(aktifPersonel);
-        hepsi.sort((a, b) => totalBK[a]!.compareTo(totalBK[b]!));
-        aktifBK.add(hepsi.first);
-      }
-    }
-
-    // BK kişisi aktif kadroda KALIR (shift çalışır, sadece son slota atanamaz)
-
     double tGLvl = gunlukSeviye;
     if (anlikTrafik.isNotEmpty) {
       for (int i = 0; i < saatler.length; i++) {
@@ -2134,7 +2066,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     if (isGunduzVardiyasi) {
       // GÜNDÜZ: Phase 1 (Slotlara dağılım) + Phase 2 (Pozisyonlara dağılım)
       Map<int, List<String>> slotAtamalari = _phase1SlotAtama(aktifPersonel);
-      gunlukPlan = _phase2PozisyonAtama(slotAtamalari, aktifPersonel, aktifBK);
+      gunlukPlan = _phase2PozisyonAtama(slotAtamalari, aktifPersonel);
     } else {
       // GECE: Bağımsız Motor (Numara tabanlı tam atama)
       gunlukPlan = _geceAtama(aktifPersonel);
@@ -2205,7 +2137,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
         'ILK_S': ilkSecilenler.contains(k),
         'ORTA_S': false,
         'SON_S': sonSecilenler.contains(k),
-        'BK_S': aktifBK.contains(k),
         '1203_S': gece1203Secilenler.contains(k),
         'ARA_S': geceAraSecilenler.contains(k),
         '0508_S': gece0508Secilenler.contains(k),
@@ -2214,7 +2145,14 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       };
     }
 
-    String guncelBK = aktifBK.isEmpty ? "-" : aktifBK.join(', ');
+    String guncelBK = "-";
+    if (isGunduzVardiyasi && saatler.length > 1) {
+       int sondanBirOnceki = saatler.length - 2;
+       if (gunlukPlan.containsKey(sondanBirOnceki) && gunlukPlan[sondanBirOnceki]!.containsKey("DEL")) {
+          String delKisi = gunlukPlan[sondanBirOnceki]!["DEL"]!;
+          if (delKisi != "-") guncelBK = _yalnIsim(delKisi);
+       }
+    }
 
     DateTime recordDate = _aktifTarih; 
     String recordDateStr = "$_aktifTarihStr (${isGunduzVardiyasi ? 'Gündüz' : 'Gece'})";
@@ -2729,7 +2667,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       for (String k in tumPersonelHavuzu) aggIstat[k] = {
         'DEL': 0, 'TWR': 0, 'GND': 0, 'SUP': 0, 
         'H_SAYI': 0, 'E_SAYI': 0,
-        'ILK_S': 0, 'ORTA_S': 0, 'SON_S': 0, 'BK_S': 0,
+        'ILK_S': 0, 'ORTA_S': 0, 'SON_S': 0,
         '1203_S': 0, 'ARA_S': 0, '0508_S': 0, '0809_S': 0, 'OFF_S': 0
       };
       
@@ -2741,7 +2679,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
             aggIstat[k]!['ILK_S'] = (aggIstat[k]!['ILK_S'] as int) + ((v['ILK_S'] == true) ? 1 : 0);
             aggIstat[k]!['ORTA_S'] = (aggIstat[k]!['ORTA_S'] as int) + ((v['ORTA_S'] == true) ? 1 : 0);
             aggIstat[k]!['SON_S'] = (aggIstat[k]!['SON_S'] as int) + ((v['SON_S'] == true) ? 1 : 0);
-            aggIstat[k]!['BK_S'] = (aggIstat[k]!['BK_S'] as int) + ((v['BK_S'] == true) ? 1 : 0);
             aggIstat[k]!['1203_S'] = (aggIstat[k]!['1203_S'] as int) + ((v['1203_S'] == true) ? 1 : 0);
             aggIstat[k]!['ARA_S'] = (aggIstat[k]!['ARA_S'] as int) + ((v['ARA_S'] == true) ? 1 : 0);
             aggIstat[k]!['0508_S'] = (aggIstat[k]!['0508_S'] as int) + ((v['0508_S'] == true) ? 1 : 0);
@@ -2843,7 +2780,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                  DataCell(Text("${e.value['ILK_S'] > 0 ? e.value['ILK_S'] : '-'}", style: const TextStyle(color: Colors.purpleAccent, fontSize: 11, fontWeight: FontWeight.bold))), 
                  DataCell(Text("${e.value['ORTA_S'] > 0 ? e.value['ORTA_S'] : '-'}", style: const TextStyle(color: Colors.blue, fontSize: 11, fontWeight: FontWeight.bold))), 
                  DataCell(Text("${e.value['SON_S'] > 0 ? e.value['SON_S'] : '-'}", style: const TextStyle(color: Colors.tealAccent, fontSize: 11, fontWeight: FontWeight.bold))), 
-                 DataCell(Text("${e.value['BK_S'] > 0 ? e.value['BK_S'] : '-'}", style: const TextStyle(color: Colors.amberAccent, fontSize: 11, fontWeight: FontWeight.bold))), 
+
                  DataCell(Text("${e.value['H_SAYI']}", style: TextStyle(color: e.value['H_SAYI'] > 0 ? Colors.pinkAccent : Colors.white24, fontSize: 11))), 
                  DataCell(Text("${e.value['E_SAYI']}", style: TextStyle(color: e.value['E_SAYI'] > 0 ? Colors.lightBlueAccent : Colors.white24, fontSize: 11))), 
               ] else ...[
@@ -3119,7 +3056,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                     bool yetkiVar = _vizeKontrol(kisi, pos, core);
                     bool prevWorked = prevRow.contains(kisi);
                     bool nextWorked = nextRow.contains(kisi);
-                    bool isBizimleKal = hIdx == saatler.length - 1 && bizimleKalSecilenler.contains(kisi);
+                    bool isBizimleKal = false; // Artik isaretlemiyoruz, sadece asagida yaziyor
                     bool uygun = yetkiVar && !prevWorked && !nextWorked && !isBizimleKal;
                     
                     Color btnColor = isTakasMode ? Colors.cyanAccent : (uygun ? Colors.green : Colors.redAccent);
@@ -3741,7 +3678,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                           children: isGunduzVardiyasi ? [
                             _ozelSecimBtn(k, 'İLK', Colors.purpleAccent, setD),
                             _ozelSecimBtn(k, 'SON', Colors.tealAccent, setD),
-                            _ozelSecimBtn(k, 'BİZİMLE KAL', Colors.amberAccent, setD),
                           ] : [
                             _ozelSecimBtn(k, '00⁰⁰-03⁰⁰', Colors.deepPurpleAccent, setD),
                             _ozelSecimBtn(k, 'ARA', Colors.indigoAccent, setD),
@@ -4565,7 +4501,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     bool isSelected = false;
     if (type == 'İLK') isSelected = ilkSecilenler.contains(k);
     if (type == 'SON') isSelected = sonSecilenler.contains(k);
-    if (type == 'BİZİMLE KAL') isSelected = bizimleKalSecilenler.contains(k);
+
     if (type == '00⁰⁰-03⁰⁰') isSelected = gece1203Secilenler.contains(k);
     if (type == 'ARA') isSelected = geceAraSecilenler.contains(k);
     if (type == '05³⁰-08⁰⁰') isSelected = gece0508Secilenler.contains(k);
@@ -4609,18 +4545,8 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
             sonSecilenler.remove(k);
           } else {
             sonSecilenler.add(k);
-            ilkSecilenler.remove(k);
-            bizimleKalSecilenler.remove(k); 
           }
-        } else if (type == 'BİZİMLE KAL') {
-          if (isSelected) {
-            bizimleKalSecilenler.remove(k);
-          } else {
-            if (bizimleKalSecilenler.length < 3) { 
-              bizimleKalSecilenler.add(k);
-              sonSecilenler.remove(k); 
-            }
-          }
+
         } else if (type == '00⁰⁰-03⁰⁰') {
            if (isSelected) gece1203Secilenler.remove(k);
            else { clearGece(); gece1203Secilenler.add(k); }
@@ -4665,7 +4591,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     if (hedefGunduz) {
       _ilkSecilenlerGunduz.clear();
       _sonSecilenlerGunduz.clear();
-      _bizimleKalSecilenlerGunduz.clear();
       _supOnlySecilenlerGunduz.clear();
       for (var k in tumPersonelHavuzu) {
         _gunlukDurumGunduz[k]?.removeAll(['HAMAL', 'ENSECİ']);
@@ -4673,7 +4598,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     } else {
       _ilkSecilenlerGece.clear();
       _sonSecilenlerGece.clear();
-      _bizimleKalSecilenlerGece.clear();
       _supOnlySecilenlerGece.clear();
       gece1203Secilenler.clear();
       geceAraSecilenler.clear();
@@ -4806,8 +4730,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                           _ilkSecilenlerGece.remove(k);
                           _sonSecilenlerGunduz.remove(k);
                           _sonSecilenlerGece.remove(k);
-                          _bizimleKalSecilenlerGunduz.remove(k);
-                          _bizimleKalSecilenlerGece.remove(k);
                           _supOnlySecilenlerGunduz.remove(k);
                           _supOnlySecilenlerGece.remove(k);
                           gece1203Secilenler.remove(k);
@@ -4845,8 +4767,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                             if(_ilkSecilenlerGece.contains(old)) { _ilkSecilenlerGece.remove(old); _ilkSecilenlerGece.add(n); }
                             if(_sonSecilenlerGunduz.contains(old)) { _sonSecilenlerGunduz.remove(old); _sonSecilenlerGunduz.add(n); }
                             if(_sonSecilenlerGece.contains(old)) { _sonSecilenlerGece.remove(old); _sonSecilenlerGece.add(n); }
-                            if(_bizimleKalSecilenlerGunduz.contains(old)) { _bizimleKalSecilenlerGunduz.remove(old); _bizimleKalSecilenlerGunduz.add(n); }
-                            if(_bizimleKalSecilenlerGece.contains(old)) { _bizimleKalSecilenlerGece.remove(old); _bizimleKalSecilenlerGece.add(n); }
                             if(_supOnlySecilenlerGunduz.contains(old)) { _supOnlySecilenlerGunduz.remove(old); _supOnlySecilenlerGunduz.add(n); }
                             if(_supOnlySecilenlerGece.contains(old)) { _supOnlySecilenlerGece.remove(old); _supOnlySecilenlerGece.add(n); }
                             if(gece1203Secilenler.contains(old)) { gece1203Secilenler.remove(old); gece1203Secilenler.add(n); }
