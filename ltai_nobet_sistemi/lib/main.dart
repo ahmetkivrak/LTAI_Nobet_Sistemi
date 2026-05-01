@@ -2149,7 +2149,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
         'IS_HAMAL': isHamal, 'IS_ENSECI': isEnseci,
         'H_SAYI': ts > majT ? (ts - majT) : 0, 'E_SAYI': ts < majT && ts > 0 ? (majT - ts) : 0,
         'ILK_S': ilkSecilenler.contains(k),
-        'ORTA_S': false,
         'SON_S': sonSecilenler.contains(k),
         '1203_S': gece1203Secilenler.contains(k),
         'ARA_S': geceAraSecilenler.contains(k),
@@ -2686,7 +2685,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       for (String k in tumPersonelHavuzu) aggIstat[k] = {
         'DEL': 0, 'TWR': 0, 'GND': 0, 'SUP': 0, 
         'H_SAYI': 0, 'E_SAYI': 0,
-        'ILK_S': 0, 'ORTA_S': 0, 'SON_S': 0, 'BK_S': 0,
+        'ILK_S': 0, 'SON_S': 0, 'BK_S': 0,
         '1203_S': 0, 'ARA_S': 0, '0508_S': 0, '0809_S': 0, 'OFF_S': 0
       };
       
@@ -2696,7 +2695,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
             aggIstat[k]!['H_SAYI'] = (aggIstat[k]!['H_SAYI'] as int) + (v['H_SAYI'] as int);
             aggIstat[k]!['E_SAYI'] = (aggIstat[k]!['E_SAYI'] as int) + (v['E_SAYI'] as int);
             aggIstat[k]!['ILK_S'] = (aggIstat[k]!['ILK_S'] as int) + ((v['ILK_S'] == true) ? 1 : 0);
-            aggIstat[k]!['ORTA_S'] = (aggIstat[k]!['ORTA_S'] as int) + ((v['ORTA_S'] == true) ? 1 : 0);
             aggIstat[k]!['SON_S'] = (aggIstat[k]!['SON_S'] as int) + ((v['SON_S'] == true) ? 1 : 0);
             aggIstat[k]!['BK_S'] = (aggIstat[k]!['BK_S'] as int) + ((v['BK_S'] == true) ? 1 : 0);
             aggIstat[k]!['1203_S'] = (aggIstat[k]!['1203_S'] as int) + ((v['1203_S'] == true) ? 1 : 0);
@@ -2777,11 +2775,10 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
               const DataColumn(label: Text("SUP", style: TextStyle(fontSize: 10))), 
               if (isGunduzSecili) ...[
                  const DataColumn(label: Text("İLK", style: TextStyle(fontSize: 10, color: Colors.purpleAccent))),
-                 const DataColumn(label: Text("ORTA", style: TextStyle(fontSize: 10, color: Colors.blue))),
                  const DataColumn(label: Text("SON", style: TextStyle(fontSize: 10, color: Colors.tealAccent))),
                  const DataColumn(label: Text("☕", style: TextStyle(fontSize: 12, color: Colors.amberAccent))),
                  const DataColumn(label: Text("KARINCA", style: TextStyle(fontSize: 10))), 
-                 const DataColumn(label: Text("A.BÖC", style: TextStyle(fontSize: 10))), 
+                 const DataColumn(label: Text("Ağustos Böceği", style: TextStyle(fontSize: 10))), 
               ] else ...[
                  const DataColumn(label: Text("00⁰⁰-03⁰⁰", style: TextStyle(fontSize: 10, color: Colors.deepPurpleAccent))),
                  const DataColumn(label: Text("ARA", style: TextStyle(fontSize: 10, color: Colors.indigoAccent))),
@@ -2798,7 +2795,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
               DataCell(Text("${e.value['SUP']}", style: const TextStyle(fontSize: 11))), 
               if (isGunduzSecili) ...[
                  DataCell(Text("${e.value['ILK_S'] > 0 ? e.value['ILK_S'] : '-'}", style: const TextStyle(color: Colors.purpleAccent, fontSize: 11, fontWeight: FontWeight.bold))), 
-                 DataCell(Text("${e.value['ORTA_S'] > 0 ? e.value['ORTA_S'] : '-'}", style: const TextStyle(color: Colors.blue, fontSize: 11, fontWeight: FontWeight.bold))), 
                  DataCell(Text("${e.value['SON_S'] > 0 ? e.value['SON_S'] : '-'}", style: const TextStyle(color: Colors.tealAccent, fontSize: 11, fontWeight: FontWeight.bold))), 
                  DataCell(Text("${e.value['BK_S'] > 0 ? e.value['BK_S'] : '-'}", style: const TextStyle(color: Colors.amberAccent, fontSize: 11, fontWeight: FontWeight.bold))),
 
@@ -3726,11 +3722,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                tooltip: "İstatistikler (Kürek Mahkumları)",
                onPressed: () { Navigator.pop(context); _arsivVeIstatistikPenceresiniAc(hedefSekme: 1); }
             ),
-            IconButton(
-               icon: Icon(Icons.lock_outlined, color: isGunduzVardiyasi ? Colors.orangeAccent : Colors.indigoAccent),
-               tooltip: "Şifre Değiştir",
-               onPressed: () { Navigator.pop(context); _sifreDegistirDialog(); }
-            ),
+
           ])),
         ])),
         actions: [
