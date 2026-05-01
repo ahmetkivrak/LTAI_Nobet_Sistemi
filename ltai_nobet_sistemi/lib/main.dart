@@ -221,7 +221,19 @@ class _EkipSecimSayfasiState extends State<EkipSecimSayfasi> {
                   const Text('LTAI', style: TextStyle(color: Colors.orangeAccent, fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 4)),
                 ]),
               ),
-              const SizedBox(height: 36),
+              const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.only(left: 80),
+                child: Text('Ahmet Kıvrak', 
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.12), 
+                    fontSize: 11, 
+                    fontStyle: FontStyle.italic, 
+                    letterSpacing: 2,
+                    fontWeight: FontWeight.w300,
+                  )),
+              ),
+              const SizedBox(height: 20),
               Wrap(
                 spacing: 12,
                 runSpacing: 12,
