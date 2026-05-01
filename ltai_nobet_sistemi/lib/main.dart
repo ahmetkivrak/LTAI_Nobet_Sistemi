@@ -350,7 +350,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     return saatSenaryosu == 1 ? geceKlasik : geceAlengirli;
   }
 
-  int t3to4 = 28; int t4to5 = 35; int t5to6 = 42; int t6to7 = 55;
+  int t3to4 = 28; int t4to5 = 35; int t5to6 = 42; int t6to7 = 68;
   
   Map<String, List<TrafikVerisi>> _haftalikTrafikKasa = {};
   
@@ -1568,6 +1568,10 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
               }
             }
           }
+        }
+        // Fallback: SUP yetkili kimse yoksa slottaki herhangi birini ata
+        if (supKisi == null && kList.isNotEmpty) {
+          supKisi = kList.firstWhere((k) => !atanmislar.contains(k), orElse: () => kList.first);
         }
         if (supKisi != null) {
           atama[supPos] = supKisi;
@@ -3508,10 +3512,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                 bool isAnchor = iS && (gunlukSeviye != hakimSeviye) && !isPinned;
                 bool isPin = iS && isPinned;
                 
-                // Sektör bilgisi
-                List<String> sektorler = getSektorlerByLevel(v.toDouble());
-                String sektorInfo = '${sektorler.length}p';
-                
                 // Renk belirleme
                 Color bgColor = Colors.transparent;
                 Color borderColor = Colors.greenAccent.withOpacity(0.4);
@@ -3563,7 +3563,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                         boxShadow: shadows
                       ), 
                       child: Text(
-                        "S${v.toInt()}$suffix ($sektorInfo)", 
+                        "S${v.toInt()}$suffix", 
                         style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 10)
                       )
                     )
