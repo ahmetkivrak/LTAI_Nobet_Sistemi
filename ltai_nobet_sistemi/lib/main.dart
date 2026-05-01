@@ -335,7 +335,7 @@ class _EkipSecimSayfasiState extends State<EkipSecimSayfasi> {
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           ),
-                          child: const Text('GİRİŞ', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 2)),
+                          child: const Icon(Icons.login, size: 28),
                         ),
                       ),
                     ],
