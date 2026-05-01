@@ -1569,10 +1569,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
             }
           }
         }
-        // Fallback: SUP yetkili kimse yoksa slottaki herhangi birini ata
-        if (supKisi == null && kList.isNotEmpty) {
-          supKisi = kList.firstWhere((k) => !atanmislar.contains(k), orElse: () => kList.first);
-        }
         if (supKisi != null) {
           atama[supPos] = supKisi;
           atanmislar.add(supKisi);
