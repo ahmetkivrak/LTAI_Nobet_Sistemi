@@ -1389,19 +1389,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       Map<String, String> pozOtoNot = {};
 
       if (isAra) {
-        pozlar = ['TWR', 'DEL'];
-      } else if (isGece) {
-        pozlar = ['TWR', 'DEL'];
-        if (sTaramasi.isNotEmpty) {
-           int ilkSaat = sTaramasi.first;
-           for (var p in hPozisyonlar[ilkSaat]!) {
-              if (!p.startsWith('SUP') && !pozlar.contains(p)) {
-                 pozlar.add(p);
-                 int bitisH = (ilkSaat + 1) % 24;
-                 pozOtoNot[p] = " (-${bitisH.toString().padLeft(2, '0')}:00)";
-              }
-           }
-        }
+        pozlar = ['TWR', 'DEL']; // ARA her zaman minimum
       } else {
         for (int ah in sTaramasi) {
           if (hPozisyonlar[ah]!.length > pozlar.length) pozlar = List.from(hPozisyonlar[ah]!);
