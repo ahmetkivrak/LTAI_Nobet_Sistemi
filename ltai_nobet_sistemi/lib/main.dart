@@ -2168,6 +2168,11 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
        }
     }
 
+    // BK_S istatistiği: post-hoc belirlenen BK kişisini işaretle
+    for (var k in tumPersonelHavuzu) {
+      bugunIstat[k]?['BK_S'] = (k == guncelBK);
+    }
+
     DateTime recordDate = _aktifTarih; 
     String recordDateStr = "$_aktifTarihStr (${isGunduzVardiyasi ? 'Gündüz' : 'Gece'})";
     
@@ -2681,7 +2686,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       for (String k in tumPersonelHavuzu) aggIstat[k] = {
         'DEL': 0, 'TWR': 0, 'GND': 0, 'SUP': 0, 
         'H_SAYI': 0, 'E_SAYI': 0,
-        'ILK_S': 0, 'ORTA_S': 0, 'SON_S': 0,
+        'ILK_S': 0, 'ORTA_S': 0, 'SON_S': 0, 'BK_S': 0,
         '1203_S': 0, 'ARA_S': 0, '0508_S': 0, '0809_S': 0, 'OFF_S': 0
       };
       
@@ -2693,6 +2698,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
             aggIstat[k]!['ILK_S'] = (aggIstat[k]!['ILK_S'] as int) + ((v['ILK_S'] == true) ? 1 : 0);
             aggIstat[k]!['ORTA_S'] = (aggIstat[k]!['ORTA_S'] as int) + ((v['ORTA_S'] == true) ? 1 : 0);
             aggIstat[k]!['SON_S'] = (aggIstat[k]!['SON_S'] as int) + ((v['SON_S'] == true) ? 1 : 0);
+            aggIstat[k]!['BK_S'] = (aggIstat[k]!['BK_S'] as int) + ((v['BK_S'] == true) ? 1 : 0);
             aggIstat[k]!['1203_S'] = (aggIstat[k]!['1203_S'] as int) + ((v['1203_S'] == true) ? 1 : 0);
             aggIstat[k]!['ARA_S'] = (aggIstat[k]!['ARA_S'] as int) + ((v['ARA_S'] == true) ? 1 : 0);
             aggIstat[k]!['0508_S'] = (aggIstat[k]!['0508_S'] as int) + ((v['0508_S'] == true) ? 1 : 0);
@@ -2794,6 +2800,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                  DataCell(Text("${e.value['ILK_S'] > 0 ? e.value['ILK_S'] : '-'}", style: const TextStyle(color: Colors.purpleAccent, fontSize: 11, fontWeight: FontWeight.bold))), 
                  DataCell(Text("${e.value['ORTA_S'] > 0 ? e.value['ORTA_S'] : '-'}", style: const TextStyle(color: Colors.blue, fontSize: 11, fontWeight: FontWeight.bold))), 
                  DataCell(Text("${e.value['SON_S'] > 0 ? e.value['SON_S'] : '-'}", style: const TextStyle(color: Colors.tealAccent, fontSize: 11, fontWeight: FontWeight.bold))), 
+                 DataCell(Text("${e.value['BK_S'] > 0 ? e.value['BK_S'] : '-'}", style: const TextStyle(color: Colors.amberAccent, fontSize: 11, fontWeight: FontWeight.bold))),
 
                  DataCell(Text("${e.value['H_SAYI']}", style: TextStyle(color: e.value['H_SAYI'] > 0 ? Colors.pinkAccent : Colors.white24, fontSize: 11))), 
                  DataCell(Text("${e.value['E_SAYI']}", style: TextStyle(color: e.value['E_SAYI'] > 0 ? Colors.lightBlueAccent : Colors.white24, fontSize: 11))), 
@@ -3070,8 +3077,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                     bool yetkiVar = _vizeKontrol(kisi, pos, core);
                     bool prevWorked = prevRow.contains(kisi);
                     bool nextWorked = nextRow.contains(kisi);
-                    bool isBizimleKal = false; // Artik isaretlemiyoruz, sadece asagida yaziyor
-                    bool uygun = yetkiVar && !prevWorked && !nextWorked && !isBizimleKal;
+                    bool uygun = yetkiVar && !prevWorked && !nextWorked;
                     
                     Color btnColor = isTakasMode ? Colors.cyanAccent : (uygun ? Colors.green : Colors.redAccent);
                     
@@ -4560,6 +4566,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
             sonSecilenler.remove(k);
           } else {
             sonSecilenler.add(k);
+            ilkSecilenler.remove(k);
           }
 
         } else if (type == '00⁰⁰-03⁰⁰') {
