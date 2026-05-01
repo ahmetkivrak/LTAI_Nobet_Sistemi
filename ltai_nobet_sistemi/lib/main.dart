@@ -3629,7 +3629,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                                 tumPersonelHavuzu[i] = tumPersonelHavuzu[i - 1];
                                 tumPersonelHavuzu[i - 1] = temp;
                                 _savePersonelPrefs();
-                                _gruplariGuncelle(arsiveKaydet: false);
                               }),
                             ),
                           const SizedBox(width: 12),
@@ -3643,7 +3642,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                                 tumPersonelHavuzu[i] = tumPersonelHavuzu[i + 1];
                                 tumPersonelHavuzu[i + 1] = temp;
                                 _savePersonelPrefs();
-                                _gruplariGuncelle(arsiveKaydet: false);
                               }),
                             ),
                         ],
