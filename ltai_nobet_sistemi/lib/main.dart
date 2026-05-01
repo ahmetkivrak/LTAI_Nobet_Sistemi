@@ -535,7 +535,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     _gruplariGuncelle(arsiveKaydet: false);
     _loadNotamPrefs(); // Rozet tercihlerini yükle
     _loadPersonelPrefs(); // Kişi listesi hafızadan yükle
-    _loadTakvimIzinler(); // Takvim izinlerini yükle
+    _loadTakvimIzinler().then((_) => _takvimdenIzinUygula()); // Takvim izinlerini yükle ve uygula
   }
 
   void _tariheGoreVerileriGuncelle() {
@@ -548,6 +548,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     _trafikSlotlariniHesapla();
     gunlukSeviye = hakimSeviye;
     isPinned = false;
+    _takvimdenIzinUygula();
     _gruplariGuncelle(arsiveKaydet: false);
   }
 
@@ -3878,19 +3879,18 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     await prefs.setString('takvimIzin_$_aktifEkip', json.encode(_takvimIzinler));
   }
 
-  /// Takvimden bugunun izinlilerini borda uygula
+  /// Seçili tarihteki takvim izinlilerini borda uygula
   void _takvimdenIzinUygula() {
-    String bugunKey = _tarihKey(DateTime.now());
-    Map<String, String> izinliler = _takvimIzinler[bugunKey] ?? {};
-    if (izinliler.isEmpty) return;
-    setState(() {
-      for (var k in izinliler.keys) {
-        if (tumPersonelHavuzu.contains(k)) {
-          gunlukDurum[k] = {'OFF'};
-        }
+    String aktifKey = _tarihKey(_seciliTakvimTarihi);
+    Map<String, String> izinliler = _takvimIzinler[aktifKey] ?? {};
+    for (var k in tumPersonelHavuzu) {
+      if (izinliler.containsKey(k)) {
+        gunlukDurum[k] = {'OFF'};
+      } else if (gunlukDurum[k]?.contains('OFF') ?? false) {
+        // Takvimde izinli değilse ve mevcut durumu OFF ise aktife çevir
+        gunlukDurum[k] = {'A'};
       }
-    });
-    _gruplariGuncelle(arsiveKaydet: false);
+    }
   }
 
   void _nobetTakviminiAc() {
@@ -3974,6 +3974,8 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                   TextButton(onPressed: () {
                     if (sec.isEmpty) _takvimIzinler.remove(dKey); else _takvimIzinler[dKey] = sec;
                     _saveTakvimIzinler();
+                    _takvimdenIzinUygula();
+                    _gruplariGuncelle(arsiveKaydet: false);
                     setD(() {});
                     Navigator.pop(c2);
                   }, child: const Icon(Icons.check, color: Colors.greenAccent, size: 20)),
