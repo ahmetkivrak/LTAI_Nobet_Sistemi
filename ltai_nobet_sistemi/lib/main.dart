@@ -507,6 +507,25 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       anlikHava24[i] = HavaDurumu(gunesli: true); 
     }
     
+    // Ekibin en yakın (aktif) mesai gününü ve vardiyasını bul
+    DateTime simdi = DateTime.now();
+    for (int i = 0; i < 5; i++) {
+      DateTime checkDate = simdi.add(Duration(days: i));
+      if (EkipVerisi.gunduzEkibi(checkDate) == _aktifEkip) {
+        _seciliTakvimTarihi = checkDate;
+        isGunduzVardiyasi = true;
+        saatSenaryosu = 1;
+        break; // İlk mesai bulundu
+      } else if (EkipVerisi.geceEkibi(checkDate) == _aktifEkip) {
+        _seciliTakvimTarihi = checkDate;
+        isGunduzVardiyasi = false;
+        bool yaz = (checkDate.month >= 5 && checkDate.month <= 10);
+        saatSenaryosu = yaz ? 2 : 1;
+        _modGecisiTemizle(false);
+        break; // İlk mesai bulundu
+      }
+    }
+
     _meteorolojiVerisiniCek();
     _trafikVerisiniCek();
     _sadeceNotamVerisiniCek(); // Açılışta taze NOTAM'ları otomatik çek
@@ -517,23 +536,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     _loadNotamPrefs(); // Rozet tercihlerini yükle
     _loadPersonelPrefs(); // Kişi listesi hafızadan yükle
     _loadTakvimIzinler(); // Takvim izinlerini yükle
-
-    // Otomatik gunduz/gece algilama
-    DateTime simdi = DateTime.now();
-    String gunduzEkip = EkipVerisi.gunduzEkibi(simdi);
-    String geceEkip = EkipVerisi.geceEkibi(simdi);
-    if (geceEkip == _aktifEkip) {
-      isGunduzVardiyasi = false;
-      // Sezon bazli saat grubu: 1 May - 31 Eki = 21:15 (senaryo 2), diger = 20:40 (senaryo 1)
-      bool yaz = (simdi.month >= 5 && simdi.month <= 10);
-      saatSenaryosu = yaz ? 2 : 1;
-      _modGecisiTemizle(false);
-      _gruplariGuncelle(arsiveKaydet: false);
-    } else if (gunduzEkip == _aktifEkip) {
-      isGunduzVardiyasi = true;
-      saatSenaryosu = 1;
-    }
-    // OFF gunu ise varsayilan gunduz kalsin
   }
 
   void _tariheGoreVerileriGuncelle() {
