@@ -2779,7 +2779,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                  const DataColumn(label: Text("İLK", style: TextStyle(fontSize: 10, color: Colors.purpleAccent))),
                  const DataColumn(label: Text("ORTA", style: TextStyle(fontSize: 10, color: Colors.blue))),
                  const DataColumn(label: Text("SON", style: TextStyle(fontSize: 10, color: Colors.tealAccent))),
-                 const DataColumn(label: Text("B.KAL", style: TextStyle(fontSize: 10, color: Colors.amberAccent))),
+                 const DataColumn(label: Text("☕", style: TextStyle(fontSize: 12, color: Colors.amberAccent))),
                  const DataColumn(label: Text("KARINCA", style: TextStyle(fontSize: 10))), 
                  const DataColumn(label: Text("A.BÖC", style: TextStyle(fontSize: 10))), 
               ] else ...[
