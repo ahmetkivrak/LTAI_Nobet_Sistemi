@@ -5124,7 +5124,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
             title: Row(children: [
               const Icon(Icons.handshake, color: Colors.purpleAccent, size: 22),
               const SizedBox(width: 8),
-              const Text('HOTO', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
+              const Text('Hand Over / Take Over', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
               const Spacer(),
               IconButton(
                 icon: const Icon(Icons.add_circle, color: Colors.purpleAccent, size: 22),
