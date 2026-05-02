@@ -88,7 +88,7 @@ class PersonelKarnesi {
 // ═══════════════════════════════════════════════════
 class EkipVerisi {
   static const Map<String, List<String>> kadro = {
-    'A': ['IU', 'GB', 'MS', 'TI', 'FZ', 'RI', 'AL', 'II', 'OG', 'OZ', 'TY', 'NA', 'EG', 'FF'],
+    'A': ['IU', 'OZ', 'GB', 'MS', 'TI', 'FZ', 'RI', 'AL', 'II', 'OG', 'TY', 'MB', 'EG', 'FF'],
     'B': ['EA', 'BK', 'FK', 'NO', 'BI', 'FI', 'IB', 'BH', 'BN', 'FD', 'AS', 'KE', 'CK', 'ZH'],
     'C': ['OO', 'AV', 'AG', 'AB', 'BS', 'UY', 'SG', 'HU', 'GN', 'OS', 'UM', 'BY', 'ME', 'NA'],
     'D': ['GP', 'AI', 'AK', 'BE', 'MK', 'AN', 'BL', 'DE', 'BA', 'MI', 'FL', 'YT', 'GI', 'AP', 'DO'],
@@ -384,7 +384,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     return saatSenaryosu == 1 ? geceKlasik : geceAlengirli;
   }
 
-  int t3to4 = 28; int t4to5 = 35; int t5to6 = 42; int t6to7 = 68;
+  int t3to4 = 28; int t4to5 = 35; int t5to6 = 48; int t6to7 = 68;
   
   Map<String, List<TrafikVerisi>> _haftalikTrafikKasa = {};
   
