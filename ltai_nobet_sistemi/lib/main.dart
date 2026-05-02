@@ -3841,7 +3841,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
   Set<String> _collapsedEnglish = {}; // tracks collapsed English content
 
   // ── Personel Kalıcılığı (SharedPreferences) ──
-  static const String _personelVersion = 'v2'; // Versiyon değişince önbellekteki eski liste göz ardı edilir
+  static const String _personelVersion = 'v3'; // Versiyon değişince önbellekteki eski liste göz ardı edilir
   Future<void> _loadPersonelPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     String vKey = 'savedPersonelVersion_$_aktifEkip';
