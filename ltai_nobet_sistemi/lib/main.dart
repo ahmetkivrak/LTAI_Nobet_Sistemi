@@ -1393,8 +1393,9 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
         }
         // Sabah slotunda (05:30-08:00) SUP yok — gerekirse manuel yazılır
         if (isSabah) pozlar.removeWhere((p) => p.startsWith('SUP'));
+        const sabitPozlar = {'TWR', 'TWR_W', 'DEL'}; // Sabit bordlar — saat notu yazma
         for (String p in pozlar) {
-           if (p.startsWith('SUP')) continue;
+           if (p.startsWith('SUP') || sabitPozlar.contains(p)) continue;
            int firstH = -1;
            int lastH = -1;
             for (int i = 0; i < sTaramasi.length; i++) {
@@ -1786,8 +1787,9 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
             }
          }
          
+         const sabitPozlar = {'TWR', 'TWR_W', 'DEL'}; // Sabit bordlar — saat notu yazma
          for (String p in pozisyonlar) {
-            if (p.startsWith('SUP')) continue;
+            if (p.startsWith('SUP') || sabitPozlar.contains(p)) continue;
             
             int firstH = -1;
             int lastH = -1;
