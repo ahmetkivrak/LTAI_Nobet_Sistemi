@@ -3793,7 +3793,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                           spacing: 4, runSpacing: 2,
                           children: [
                             ...getSektorlerByLevel(gunlukSeviye).map((pos) => _yetkiBtn(k, pos, setD)),
-                            if (isGunduzVardiyasi) _ozelSecimBtn(k, 'SUP ONLY', Colors.red.shade900, setD),
+                            _ozelSecimBtn(k, 'SUP ONLY', Colors.red.shade900, setD),
                           ],
                         ),
                         if (!isGunduzVardiyasi) ...[
