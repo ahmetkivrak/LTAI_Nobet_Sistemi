@@ -5293,102 +5293,83 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
 
   void _hotoNotYazDialog() {
     TextEditingController metinC = TextEditingController();
-    String kategori = 'OPS';
     
     showDialog(context: context, builder: (ctx) {
       return StatefulBuilder(builder: (ctx, setD) {
-        Map<String, Color> katRenk = {'OPS': Colors.redAccent, 'TRF': Colors.amber, 'GNL': Colors.indigoAccent};
-        Map<String, String> katAd = {'OPS': '🔴 Operasyonel', 'TRF': '🟡 Trafik', 'GNL': '🟢 Genel'};
         String vardiyaTxt = isGunduzVardiyasi ? 'Gündüz' : 'Gece';
         
         return AlertDialog(
           backgroundColor: const Color(0xFF1A1A1A),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white10)),
           title: Row(children: [
-            const Icon(Icons.edit_note, color: Colors.purpleAccent, size: 20),
-            const SizedBox(width: 8),
-            Text('$_aktifEkip Ekibi — Devir Notu', style: const TextStyle(color: Colors.white, fontSize: 14)),
+            const Icon(Icons.edit_note, color: Colors.amberAccent, size: 24),
+            const SizedBox(width: 10),
+            Text('$_aktifEkip Ekibi — Devir Notu', style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
           ]),
           content: SizedBox(width: 380, child: Column(mainAxisSize: MainAxisSize.min, children: [
             // Otomatik bilgiler
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(8),
               ),
               child: Row(children: [
-                Icon(Icons.info_outline, size: 14, color: EkipVerisi.renkler[_aktifEkip]),
-                const SizedBox(width: 6),
-                Text('$_aktifEkip Ekibi · $vardiyaTxt · $_aktifTarihStr', 
-                  style: TextStyle(color: EkipVerisi.renkler[_aktifEkip], fontSize: 11, fontWeight: FontWeight.bold)),
+                Icon(Icons.info_outline, size: 14, color: Colors.amberAccent.withOpacity(0.7)),
+                const SizedBox(width: 8),
+                Text('$vardiyaTxt Vardiyası · $_aktifTarihStr', 
+                  style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold)),
               ]),
             ),
-            const SizedBox(height: 12),
-            // Kategori seçimi
-            Row(children: katAd.entries.map((e) => Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: GestureDetector(
-                onTap: () => setD(() => kategori = e.key),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: kategori == e.key ? katRenk[e.key]!.withOpacity(0.2) : Colors.transparent,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                      color: kategori == e.key ? katRenk[e.key]! : Colors.white24,
-                      width: kategori == e.key ? 1.5 : 0.5,
-                    ),
-                  ),
-                  child: Text(e.value, style: TextStyle(
-                    color: kategori == e.key ? katRenk[e.key] : Colors.white38,
-                    fontSize: 10, fontWeight: FontWeight.bold)),
-                ),
-              ),
-            )).toList()),
-            const SizedBox(height: 12),
+            const SizedBox(height: 15),
             // Metin
             TextField(
               controller: metinC,
               maxLines: 5,
-              style: const TextStyle(color: Colors.white, fontSize: 13),
+              autofocus: true,
+              style: const TextStyle(color: Colors.white, fontSize: 14),
               decoration: InputDecoration(
-                hintText: 'Devir notunu yazın...',
-                hintStyle: TextStyle(color: Colors.white.withOpacity(0.2)),
-                enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.white24), borderRadius: BorderRadius.circular(8)),
-                focusedBorder: OutlineInputBorder(borderSide: const BorderSide(color: Colors.purpleAccent), borderRadius: BorderRadius.circular(8)),
+                hintText: 'Mesajınızı veya devir notunuzu buraya yazın...',
+                hintStyle: TextStyle(color: Colors.white.withOpacity(0.2), fontSize: 13),
+                filled: true,
+                fillColor: Colors.white.withOpacity(0.02),
+                enabledBorder: OutlineInputBorder(borderSide: const BorderSide(color: Colors.white12), borderRadius: BorderRadius.circular(10)),
+                focusedBorder: OutlineInputBorder(borderSide: const BorderSide(color: Colors.amberAccent, width: 1.5), borderRadius: BorderRadius.circular(10)),
               ),
             ),
           ])),
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx),
-              child: const Text('İptal', style: TextStyle(color: Colors.grey))),
+              child: const Text('İPTAL', style: TextStyle(color: Colors.white38, fontSize: 12))),
             ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.purpleAccent),
-              icon: const Icon(Icons.send, size: 16, color: Colors.white),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.amberAccent, 
+                foregroundColor: Colors.black,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10)
+              ),
+              icon: const Icon(Icons.send, size: 18),
               onPressed: () {
                 String metin = metinC.text.trim();
                 if (metin.isEmpty) return;
                 
-                setState(() {
-                  _hotoNotlari.add({
-                    'ekip': _aktifEkip,
-                    'vardiya': isGunduzVardiyasi ? 'Gündüz' : 'Gece',
-                    'tarih': _aktifTarihStr,
-                    'kategori': kategori,
-                    'metin': metin,
-                    'fotoYolu': '',
-                    'okunduMu': false,
-                    'timestamp': DateTime.now().millisecondsSinceEpoch,
-                  });
+                FirebaseFirestore.instance.collection('hoto').add({
+                  'ekip': _aktifEkip,
+                  'vardiya': isGunduzVardiyasi ? 'Gündüz' : 'Gece',
+                  'tarih': _aktifTarihStr,
+                  'kategori': 'GNL',
+                  'metin': metin,
+                  'fotoYolu': '',
+                  'okunduMu': false,
+                  'timestamp': DateTime.now().millisecondsSinceEpoch,
                 });
-                _hotoNotlariniKaydet();
                 Navigator.pop(ctx);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Devir notu kaydedildi ✓'), 
-                    backgroundColor: Colors.purpleAccent, duration: Duration(seconds: 2)),
+                  const SnackBar(content: Text('Devir notu başarıyla gönderildi ✓'), 
+                    backgroundColor: Colors.amber, duration: Duration(seconds: 2)),
                 );
               },
-              label: const Text('Gönder', style: TextStyle(color: Colors.white)),
+              label: const Text('GÖNDER', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
           ],
         );
