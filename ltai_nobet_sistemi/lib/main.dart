@@ -1,20 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'dart:async';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'firebase_options.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-  runApp(const LtaiApp());
-}
+void main() => runApp(const LtaiApp());
 
 class TrafikVerisi {
   final int gelen;    
@@ -27,14 +17,6 @@ class TrafikVerisi {
   int get ifrToplam => gelen + giden;
   int get vfrToplam => vfrGelen + vfrGiden;
   int get genelToplam => ifrToplam + vfrToplam;
-
-  Map<String, dynamic> toMap() => {
-    'gelen': gelen, 'giden': giden, 'vfrGelen': vfrGelen, 'vfrGiden': vfrGiden,
-  };
-
-  factory TrafikVerisi.fromMap(Map<String, dynamic> map) => TrafikVerisi(
-    map['gelen'] ?? 0, map['giden'] ?? 0, vfrGelen: map['vfrGelen'] ?? 0, vfrGiden: map['vfrGiden'] ?? 0,
-  );
 }
 
 class HavaDurumu {
@@ -60,15 +42,6 @@ class HavaDurumu {
       bulutlu: bulutlu ?? this.bulutlu, gunesli: gunesli ?? this.gunesli, siddetliRuzgar: siddetliRuzgar ?? this.siddetliRuzgar,
     );
   }
-
-  Map<String, dynamic> toMap() => {
-    'rwy': rwy, 'yagmur': yagmur, 'oraj': oraj, 'bulutlu': bulutlu, 'gunesli': gunesli, 'siddetliRuzgar': siddetliRuzgar,
-  };
-
-  factory HavaDurumu.fromMap(Map<String, dynamic> map) => HavaDurumu(
-    rwy: map['rwy'] ?? '36', yagmur: map['yagmur'] ?? false, oraj: map['oraj'] ?? false,
-    bulutlu: map['bulutlu'] ?? false, gunesli: map['gunesli'] ?? false, siddetliRuzgar: map['siddetliRuzgar'] ?? false,
-  );
 }
 
 class AirgramVerisi {
@@ -87,34 +60,7 @@ class BordArsivi {
   final Map<String, Map<String, dynamic>> istatistik;
   final List<String> izinliler; 
   final String bizimleKal; 
-
   BordArsivi(this.tarih, this.tarihMetni, this.basliklar, this.satirlar, this.satirlarTrafik, this.satirlarGercekciTrafik, this.satirlarHava, this.istatistik, this.izinliler, this.bizimleKal);
-
-  Map<String, dynamic> toMap() => {
-    'tarih': tarih.millisecondsSinceEpoch,
-    'tarihMetni': tarihMetni,
-    'basliklar': basliklar,
-    'satirlar': satirlar,
-    'satirlarTrafik': satirlarTrafik.map((x) => x.toMap()).toList(),
-    'satirlarGercekciTrafik': satirlarGercekciTrafik.map((x) => x.toMap()).toList(),
-    'satirlarHava': satirlarHava.map((x) => x.toMap()).toList(),
-    'istatistik': istatistik,
-    'izinliler': izinliler,
-    'bizimleKal': bizimleKal,
-  };
-
-  factory BordArsivi.fromMap(Map<String, dynamic> map) => BordArsivi(
-    DateTime.fromMillisecondsSinceEpoch(map['tarih'] ?? 0),
-    map['tarihMetni'] ?? '',
-    List<String>.from(map['basliklar'] ?? []),
-    (map['satirlar'] as List).map((x) => List<String>.from(x)).toList(),
-    (map['satirlarTrafik'] as List).map((x) => TrafikVerisi.fromMap(x)).toList(),
-    (map['satirlarGercekciTrafik'] as List).map((x) => TrafikVerisi.fromMap(x)).toList(),
-    (map['satirlarHava'] as List).map((x) => HavaDurumu.fromMap(x)).toList(),
-    (map['istatistik'] as Map).map((k, v) => MapEntry(k.toString(), Map<String, dynamic>.from(v))),
-    List<String>.from(map['izinliler'] ?? []),
-    map['bizimleKal'] ?? '-',
-  );
 }
 
 class PersonelKarnesi {
@@ -529,90 +475,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
   String _yalnIsim(String s) => s.contains(' (') ? s.split(' (')[0] : s;
 
   List<BordArsivi> tamArsiv = [];
-  
-  void _arsivleriBuluttanYukle() {
-    FirebaseFirestore.instance
-        .collection('arsiv')
-        .where('ekip', isEqualTo: _aktifEkip)
-        .orderBy('tarih', descending: true)
-        .snapshots()
-        .listen((snapshot) {
-      if (!mounted) return;
-      setState(() {
-        tamArsiv = snapshot.docs.map((doc) => BordArsivi.fromMap(doc.data())).toList();
-      });
-    });
-  }
-
-  Future<void> _arsiviBulutaKaydet(BordArsivi bord) async {
-    String docId = "${bord.tarihMetni}_${_aktifEkip}";
-    await FirebaseFirestore.instance
-        .collection('arsiv')
-        .doc(docId)
-        .set(bord.toMap()..addAll({'ekip': _aktifEkip}));
-  }
-  
-  // Bulut Senkronizasyon Dinleyicisi
-  StreamSubscription? _bordoSubscription;
-
-  void _gunlukVerileriBuluttanDinle() {
-    _bordoSubscription?.cancel();
-    String docId = "${_aktifTarihStr}_${_aktifEkip}_${isGunduzVardiyasi ? 'G' : 'N'}";
-    
-    _bordoSubscription = FirebaseFirestore.instance
-        .collection('gunluk_bordolar')
-        .doc(docId)
-        .snapshots()
-        .listen((snapshot) {
-      if (!snapshot.exists || !mounted) return;
-      
-      var data = snapshot.data()!;
-      setState(() {
-        // Verileri Firestore'dan (List) alıp Set'e çevirerek geri yüklüyoruz
-        if (isGunduzVardiyasi) {
-          _gunlukDurumGunduz = (data['durum'] as Map).map((k, v) => MapEntry(k.toString(), Set<String>.from(v)));
-          _ilkSecilenlerGunduz = Set<String>.from(data['ilk'] ?? []);
-          _sonSecilenlerGunduz = Set<String>.from(data['son'] ?? []);
-          _supOnlySecilenlerGunduz = Set<String>.from(data['supOnly'] ?? []);
-        } else {
-          _gunlukDurumGece = (data['durum'] as Map).map((k, v) => MapEntry(k.toString(), Set<String>.from(v)));
-          _ilkSecilenlerGece = Set<String>.from(data['ilk'] ?? []);
-          _sonSecilenlerGece = Set<String>.from(data['son'] ?? []);
-          _supOnlySecilenlerGece = Set<String>.from(data['supOnly'] ?? []);
-          gece1203Secilenler = Set<String>.from(data['gece1203'] ?? []);
-          geceAraSecilenler = Set<String>.from(data['geceAra'] ?? []);
-          gece0508Secilenler = Set<String>.from(data['gece0508'] ?? []);
-          gece0809Secilenler = Set<String>.from(data['gece0809'] ?? []);
-          geceOffSecilenler = Set<String>.from(data['geceOff'] ?? []);
-        }
-        yetkiler = (data['yetkiler'] as Map).map((k, v) => MapEntry(k.toString(), Set<String>.from(v)));
-      });
-      _gruplariGuncelle(arsiveKaydet: false);
-    });
-  }
-
-  Future<void> _gunlukVerileriBulutaKaydet() async {
-    String docId = "${_aktifTarihStr}_${_aktifEkip}_${isGunduzVardiyasi ? 'G' : 'N'}";
-    
-    Map<String, List<String>> durumList = gunlukDurum.map((k, v) => MapEntry(k, v.toList()));
-    Map<String, List<String>> yetkiList = yetkiler.map((k, v) => MapEntry(k, v.toList()));
-
-    await FirebaseFirestore.instance.collection('gunluk_bordolar').doc(docId).set({
-      'durum': durumList,
-      'yetkiler': yetkiList,
-      'ilk': ilkSecilenler.toList(),
-      'son': sonSecilenler.toList(),
-      'supOnly': supOnlySecilenler.toList(),
-      if (!isGunduzVardiyasi) ...{
-        'gece1203': gece1203Secilenler.toList(),
-        'geceAra': geceAraSecilenler.toList(),
-        'gece0508': gece0508Secilenler.toList(),
-        'gece0809': gece0809Secilenler.toList(),
-        'geceOff': geceOffSecilenler.toList(),
-      },
-      'guncellemeTS': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
-  }
 
   // ═══ HOTO (Devir/Teslim) Not Sistemi ═══
   List<Map<String, dynamic>> _hotoNotlari = [];
@@ -709,10 +571,8 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     _gruplariGuncelle(arsiveKaydet: false);
     _loadNotamPrefs(); // Rozet tercihlerini yükle
     _loadPersonelPrefs(); // Kişi listesi hafızadan yükle
-    _gunlukVerileriBuluttanDinle(); // Bordo verilerini buluttan dinlemeye başla
     _loadTakvimIzinler().then((_) => _takvimdenIzinUygula()); // Takvim izinlerini yükle ve uygula
     _hotoNotlariniYukle(); // HOTO notlarını yükle
-    _arsivleriBuluttanYukle(); // Arşivleri buluttan çekmeye başla
   }
 
   void _tariheGoreVerileriGuncelle() {
@@ -726,7 +586,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     gunlukSeviye = hakimSeviye;
     isPinned = false;
     _takvimdenIzinUygula();
-    _gunlukVerileriBuluttanDinle(); // Tarih değişince yeni tarihin verilerini dinle
     _gruplariGuncelle(arsiveKaydet: false);
   }
 
@@ -2409,9 +2268,9 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     if (varOlanIndex != -1) {
       tamArsiv[varOlanIndex] = yeniBord;
     } else {
+      // Her zaman ekle: mod/tarih kombinasyonu ilk kez oluşturuluyorsa UI çökmemeli
       tamArsiv.add(yeniBord);
     }
-    _arsiviBulutaKaydet(yeniBord); // Buluta gönder
   }
 
   void _isiHaritasiniAc() {
@@ -3661,23 +3520,15 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                       const SizedBox(height: 6),
                       SizedBox(
                         height: 35,
-                        child: Builder(builder: (context) {
-                          DateTime bugun = DateTime.now();
-                          DateTime sifirBugun = DateTime(bugun.year, bugun.month, bugun.day);
-                          DateTime sifirSecili = DateTime(_seciliTakvimTarihi.year, _seciliTakvimTarihi.month, _seciliTakvimTarihi.day);
-                          bool isGecmis = sifirSecili.isBefore(sifirBugun);
-
-                          return ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                               backgroundColor: isGecmis ? Colors.grey.withOpacity(0.1) : Colors.white.withOpacity(0.1), 
-                               foregroundColor: isGecmis ? Colors.white12 : Colors.white,
-                               side: BorderSide(color: isGecmis ? Colors.white10 : Colors.white38, width: 1.5),
-                               padding: EdgeInsets.zero, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6))
-                            ),
-                            onPressed: isGecmis ? null : () { _gruplariGuncelle(arsiveKaydet: true); Navigator.pop(context); },
-                            child: Icon(isGecmis ? Icons.lock_outline : Icons.check_circle, size: 20)
-                          );
-                        })
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                             backgroundColor: Colors.white.withOpacity(0.1), foregroundColor: Colors.white,
+                             side: const BorderSide(color: Colors.white38, width: 1.5),
+                             padding: EdgeInsets.zero, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6))
+                          ),
+                          onPressed: () { _gruplariGuncelle(arsiveKaydet: true); Navigator.pop(context); },
+                          child: const Icon(Icons.check_circle, size: 20)
+                        )
                       ),
                     ]
                   )
@@ -4048,45 +3899,39 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
   // ── Personel Kalıcılığı (SharedPreferences) ──
   static const String _personelVersion = 'v3'; // Versiyon değişince önbellekteki eski liste göz ardı edilir
   Future<void> _loadPersonelPrefs() async {
-    // Firestore'dan bu ekibin personel listesini canlı dinle
-    FirebaseFirestore.instance
-        .collection('personeller')
-        .doc(_aktifEkip)
-        .snapshots()
-        .listen((snapshot) async {
-      if (!snapshot.exists) {
-        // Eğer bulutta henüz bu ekip yoksa, varsayılan listeyi yükle (Seeding)
-        List<String> varsayilanlar = EkipVerisi.kadro[_aktifEkip] ?? [];
-        await FirebaseFirestore.instance
-            .collection('personeller')
-            .doc(_aktifEkip)
-            .set({'liste': varsayilanlar});
-        return;
+    final prefs = await SharedPreferences.getInstance();
+    String vKey = 'savedPersonelVersion_$_aktifEkip';
+    String pKey = 'savedPersonel_$_aktifEkip';
+    // Versiyon kontrolu: eski önbellekte farklı versiyon varsa personeli kod listesiyle başlat
+    String savedVersion = prefs.getString(vKey) ?? '';
+    if (savedVersion != _personelVersion) {
+      // Önbellek versiyonu eski — ilk kayda zorla (kod listesindeki varsayılanı kaydet)
+      await prefs.setString(vKey, _personelVersion);
+      await prefs.setString(pKey, json.encode(tumPersonelHavuzu));
+      return; // Kod listesindeki varsayılan listeyi kullan
+    }
+    String? pJson = prefs.getString(pKey);
+    if (pJson != null) {
+      try {
+        List<dynamic> saved = json.decode(pJson);
+        setState(() {
+          tumPersonelHavuzu.clear();
+          tumPersonelHavuzu.addAll(List<String>.from(saved));
+          for (var k in tumPersonelHavuzu) {
+            if (!_gunlukDurumGunduz.containsKey(k)) _gunlukDurumGunduz[k] = {'A'};
+            if (!_gunlukDurumGece.containsKey(k)) _gunlukDurumGece[k] = {'A'};
+          }
+        });
+        _gruplariGuncelle(arsiveKaydet: false);
+      } catch (e) {
+        debugPrint("Personel Prefs parse hatasi: $e");
       }
-
-      if (!mounted) return;
-      List<dynamic> bulutListe = snapshot.data()?['liste'] ?? [];
-      setState(() {
-        tumPersonelHavuzu.clear();
-        tumPersonelHavuzu.addAll(List<String>.from(bulutListe));
-        
-        // Eksik kişileri günlük duruma varsayılan (A) ile ekle
-        for (var k in tumPersonelHavuzu) {
-          if (!_gunlukDurumGunduz.containsKey(k)) _gunlukDurumGunduz[k] = {'A'};
-          if (!_gunlukDurumGece.containsKey(k)) _gunlukDurumGece[k] = {'A'};
-          if (!yetkiler.containsKey(k)) yetkiler[k] = {};
-        }
-      });
-      _gruplariGuncelle(arsiveKaydet: false);
-    });
+    }
   }
 
   Future<void> _savePersonelPrefs() async {
-    // Personel listesi değiştiğinde Firestore'u güncelle
-    await FirebaseFirestore.instance
-        .collection('personeller')
-        .doc(_aktifEkip)
-        .set({'liste': tumPersonelHavuzu});
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('savedPersonel_$_aktifEkip', json.encode(tumPersonelHavuzu));
   }
 
   // ── Rozet Kalıcılığı (SharedPreferences) ──
@@ -4268,7 +4113,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                           child: Row(mainAxisSize: MainAxisSize.min, children: [
                             Text(k, style: TextStyle(color: renk, fontWeight: izinli ? FontWeight.bold : FontWeight.normal, fontSize: 12)),
                             if (izinli) ...[const SizedBox(width: 3),
-                              Text(tur!, style: TextStyle(color: renk.withOpacity(0.7), fontSize: 8, fontWeight: FontWeight.bold))],
+                              Text(tur, style: TextStyle(color: renk.withOpacity(0.7), fontSize: 8, fontWeight: FontWeight.bold))],
                           ]),
                         ),
                       );
@@ -4870,7 +4715,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
            else { clearGece(); geceOffSecilenler.add(k); }
         }
         _gruplariGuncelle(arsiveKaydet: false);
-        _gunlukVerileriBulutaKaydet();
       }),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -4940,7 +4784,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
           }
         }
         _gruplariGuncelle(arsiveKaydet: false);
-        _gunlukVerileriBulutaKaydet();
       }),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
@@ -4970,7 +4813,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
           if (y == 'SUP') supOnlySecilenler.remove(k); // SUP seçilince SUP ONLY'yi kaldır
         }
         _gruplariGuncelle(arsiveKaydet: false);
-        _gunlukVerileriBulutaKaydet();
       }),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
@@ -5280,30 +5122,22 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
   // ═══════════════════════════════════════════════════
   
   Future<void> _hotoNotlariniYukle() async {
-    // Firestore'dan canlı dinleyici başlat
-    FirebaseFirestore.instance
-        .collection('hoto')
-        .orderBy('timestamp', descending: true)
-        .snapshots()
-        .listen((snapshot) {
-      if (!mounted) return;
-      setState(() {
+    final prefs = await SharedPreferences.getInstance();
+    String? raw = prefs.getString('hoto_notlari');
+    if (raw != null) {
+      try {
+        List<dynamic> parsed = json.decode(raw);
+        _hotoNotlari = parsed.map((e) => Map<String, dynamic>.from(e)).toList();
+        // 24 saat eski notları temizle
         int now = DateTime.now().millisecondsSinceEpoch;
-        _hotoNotlari = snapshot.docs.map((doc) {
-          var data = doc.data();
-          data['id'] = doc.id; // Silme işlemi için ID'yi sakla
-          return data;
-        }).where((n) {
-          // 24 saatten eski notları yerel listede gösterme
-          return (now - (n['timestamp'] ?? 0)) < 24 * 60 * 60 * 1000;
-        }).toList();
-      });
-    });
+        _hotoNotlari.removeWhere((n) => (now - (n['timestamp'] ?? 0)) > 24 * 60 * 60 * 1000);
+      } catch (_) {}
+    }
   }
 
   Future<void> _hotoNotlariniKaydet() async {
-    // Bu fonksiyon artık boş; çünkü not ekleme anında Firestore'a yazıyoruz.
-    // Geriye dönük uyumluluk için boş bıraktım.
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('hoto_notlari', json.encode(_hotoNotlari));
   }
 
   int get _okunmamisHotoSayisi => _hotoNotlari.where((n) => 
@@ -5321,8 +5155,8 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
           gelenNotlar.sort((a, b) => (b['timestamp'] ?? 0).compareTo(a['timestamp'] ?? 0));
           bizimNotlar.sort((a, b) => (b['timestamp'] ?? 0).compareTo(a['timestamp'] ?? 0));
 
-          Map<String, Color> katRenk = {'GNL': Colors.amberAccent};
-          Map<String, String> katAd = {'GNL': '📝 Not'};
+          Map<String, Color> katRenk = {'OPS': Colors.redAccent, 'TRF': Colors.amber, 'GNL': Colors.greenAccent};
+          Map<String, String> katAd = {'OPS': '🔴 Operasyonel', 'TRF': '🟡 Trafik', 'GNL': '🟢 Genel'};
 
           Widget notKarti(Map<String, dynamic> not, bool bizim) {
             String kat = not['kategori'] ?? 'GNL';
@@ -5366,12 +5200,9 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                     const SizedBox(width: 6),
                     GestureDetector(
                       onTap: () => setD(() {
-                        if (not['id'] != null) {
-                          FirebaseFirestore.instance.collection('hoto').doc(not['id']).update({'okunduMu': true});
-                        }
-                        _gunlukVerileriBulutaKaydet();
-        _gunlukVerileriBulutaKaydet();
-        setState(() {});
+                        not['okunduMu'] = true;
+                        _hotoNotlariniKaydet();
+                        setState(() {});
                       }),
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -5387,12 +5218,9 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                     const SizedBox(width: 6),
                     GestureDetector(
                       onTap: () => setD(() {
-                        if (not['id'] != null) {
-                          FirebaseFirestore.instance.collection('hoto').doc(not['id']).delete();
-                        }
-                        _gunlukVerileriBulutaKaydet();
-        _gunlukVerileriBulutaKaydet();
-        setState(() {});
+                        _hotoNotlari.remove(not);
+                        _hotoNotlariniKaydet();
+                        setState(() {});
                       }),
                       child: const Icon(Icons.delete_outline, size: 16, color: Colors.redAccent),
                     ),
@@ -5465,83 +5293,102 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
 
   void _hotoNotYazDialog() {
     TextEditingController metinC = TextEditingController();
+    String kategori = 'OPS';
     
     showDialog(context: context, builder: (ctx) {
       return StatefulBuilder(builder: (ctx, setD) {
+        Map<String, Color> katRenk = {'OPS': Colors.redAccent, 'TRF': Colors.amber, 'GNL': Colors.indigoAccent};
+        Map<String, String> katAd = {'OPS': '🔴 Operasyonel', 'TRF': '🟡 Trafik', 'GNL': '🟢 Genel'};
         String vardiyaTxt = isGunduzVardiyasi ? 'Gündüz' : 'Gece';
         
         return AlertDialog(
           backgroundColor: const Color(0xFF1A1A1A),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white10)),
           title: Row(children: [
-            const Icon(Icons.edit_note, color: Colors.amberAccent, size: 24),
-            const SizedBox(width: 10),
-            Text('$_aktifEkip Ekibi — Devir Notu', style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+            const Icon(Icons.edit_note, color: Colors.purpleAccent, size: 20),
+            const SizedBox(width: 8),
+            Text('$_aktifEkip Ekibi — Devir Notu', style: const TextStyle(color: Colors.white, fontSize: 14)),
           ]),
           content: SizedBox(width: 380, child: Column(mainAxisSize: MainAxisSize.min, children: [
             // Otomatik bilgiler
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(6),
               ),
               child: Row(children: [
-                Icon(Icons.info_outline, size: 14, color: Colors.amberAccent.withOpacity(0.7)),
-                const SizedBox(width: 8),
-                Text('$vardiyaTxt Vardiyası · $_aktifTarihStr', 
-                  style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold)),
+                Icon(Icons.info_outline, size: 14, color: EkipVerisi.renkler[_aktifEkip]),
+                const SizedBox(width: 6),
+                Text('$_aktifEkip Ekibi · $vardiyaTxt · $_aktifTarihStr', 
+                  style: TextStyle(color: EkipVerisi.renkler[_aktifEkip], fontSize: 11, fontWeight: FontWeight.bold)),
               ]),
             ),
-            const SizedBox(height: 15),
+            const SizedBox(height: 12),
+            // Kategori seçimi
+            Row(children: katAd.entries.map((e) => Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: GestureDetector(
+                onTap: () => setD(() => kategori = e.key),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: kategori == e.key ? katRenk[e.key]!.withOpacity(0.2) : Colors.transparent,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: kategori == e.key ? katRenk[e.key]! : Colors.white24,
+                      width: kategori == e.key ? 1.5 : 0.5,
+                    ),
+                  ),
+                  child: Text(e.value, style: TextStyle(
+                    color: kategori == e.key ? katRenk[e.key] : Colors.white38,
+                    fontSize: 10, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            )).toList()),
+            const SizedBox(height: 12),
             // Metin
             TextField(
               controller: metinC,
               maxLines: 5,
-              autofocus: true,
-              style: const TextStyle(color: Colors.white, fontSize: 14),
+              style: const TextStyle(color: Colors.white, fontSize: 13),
               decoration: InputDecoration(
-                hintText: 'Mesajınızı veya devir notunuzu buraya yazın...',
-                hintStyle: TextStyle(color: Colors.white.withOpacity(0.2), fontSize: 13),
-                filled: true,
-                fillColor: Colors.white.withOpacity(0.02),
-                enabledBorder: OutlineInputBorder(borderSide: const BorderSide(color: Colors.white12), borderRadius: BorderRadius.circular(10)),
-                focusedBorder: OutlineInputBorder(borderSide: const BorderSide(color: Colors.amberAccent, width: 1.5), borderRadius: BorderRadius.circular(10)),
+                hintText: 'Devir notunu yazın...',
+                hintStyle: TextStyle(color: Colors.white.withOpacity(0.2)),
+                enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.white24), borderRadius: BorderRadius.circular(8)),
+                focusedBorder: OutlineInputBorder(borderSide: const BorderSide(color: Colors.purpleAccent), borderRadius: BorderRadius.circular(8)),
               ),
             ),
           ])),
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx),
-              child: const Text('İPTAL', style: TextStyle(color: Colors.white38, fontSize: 12))),
+              child: const Text('İptal', style: TextStyle(color: Colors.grey))),
             ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.amberAccent, 
-                foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10)
-              ),
-              icon: const Icon(Icons.send, size: 18),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.purpleAccent),
+              icon: const Icon(Icons.send, size: 16, color: Colors.white),
               onPressed: () {
                 String metin = metinC.text.trim();
                 if (metin.isEmpty) return;
                 
-                FirebaseFirestore.instance.collection('hoto').add({
-                  'ekip': _aktifEkip,
-                  'vardiya': isGunduzVardiyasi ? 'Gündüz' : 'Gece',
-                  'tarih': _aktifTarihStr,
-                  'kategori': 'GNL',
-                  'metin': metin,
-                  'fotoYolu': '',
-                  'okunduMu': false,
-                  'timestamp': DateTime.now().millisecondsSinceEpoch,
+                setState(() {
+                  _hotoNotlari.add({
+                    'ekip': _aktifEkip,
+                    'vardiya': isGunduzVardiyasi ? 'Gündüz' : 'Gece',
+                    'tarih': _aktifTarihStr,
+                    'kategori': kategori,
+                    'metin': metin,
+                    'fotoYolu': '',
+                    'okunduMu': false,
+                    'timestamp': DateTime.now().millisecondsSinceEpoch,
+                  });
                 });
+                _hotoNotlariniKaydet();
                 Navigator.pop(ctx);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Devir notu başarıyla gönderildi ✓'), 
-                    backgroundColor: Colors.amber, duration: Duration(seconds: 2)),
+                  const SnackBar(content: Text('Devir notu kaydedildi ✓'), 
+                    backgroundColor: Colors.purpleAccent, duration: Duration(seconds: 2)),
                 );
               },
-              label: const Text('GÖNDER', style: TextStyle(fontWeight: FontWeight.bold)),
+              label: const Text('Gönder', style: TextStyle(color: Colors.white)),
             ),
           ],
         );
