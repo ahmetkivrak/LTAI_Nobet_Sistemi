@@ -1471,6 +1471,24 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       return false;
     }
 
+    // ── ÖN-DAĞITIM: SUP ONLY kişileri farklı akşam turlarına yay ──
+    // Gündüzdeki gibi: her akşam turunda en fazla 1 SUP ONLY kişi olmalı
+    List<String> supOnlyListesi = supOnlySecilenler.where((k) => geceListe.contains(k)).toList();
+    Set<int> supOnlyAtanmisSlotlar = {};  // hangi akşam slotlarına supOnly atandı
+    
+    for (var k in supOnlyListesi) {
+      // Bu kişinin gece slotunu ata (eğer havuzda seçilmişse zaten atanacak, burada sadece akşam garantisi)
+      // Akşam slotunu seç: supOnly olmayan bir akşam slotu bul
+      for (int asi in aksamSiralanmis) {
+        if (supOnlyAtanmisSlotlar.contains(asi)) continue; // bu turda zaten supOnly var
+        if (ataSlot(asi, k)) {
+          kisiAksamSlot[k] = asi;
+          supOnlyAtanmisSlotlar.add(asi);
+          break;
+        }
+      }
+    }
+
     // ── HAVUZ-A: Gece1 (00:00-03:00) Seçilenler ──
     // Gece erken tur → Akşam erken tur (araya maksimum dinlenme)
     for (var k in gece1203Secilenler) {
@@ -1479,9 +1497,11 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       if (geceSlotIdx != -1 && ataSlot(geceSlotIdx, k)) {
         kisiGeceSlot[k] = geceSlotIdx;
       }
-      // Akşam karşılığı: EN ERKEN akşam slotu
-      for (int asi in aksamSiralanmis) {
-        if (ataSlot(asi, k)) { kisiAksamSlot[k] = asi; break; }
+      // Akşam karşılığı: EN ERKEN akşam slotu (supOnly ön-dağıtımda zaten atandıysa atla)
+      if (!kisiAksamSlot.containsKey(k)) {
+        for (int asi in aksamSiralanmis) {
+          if (ataSlot(asi, k)) { kisiAksamSlot[k] = asi; break; }
+        }
       }
     }
 
@@ -1493,9 +1513,11 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       if (araSlotIdx != -1 && ataSlot(araSlotIdx, k)) {
         kisiGeceSlot[k] = araSlotIdx;
       }
-      // Akşam karşılığı: EN ERKEN akşam slotu (gece1 ile aynı yöne)
-      for (int asi in aksamSiralanmis) {
-        if (ataSlot(asi, k)) { kisiAksamSlot[k] = asi; break; }
+      // Akşam karşılığı: EN ERKEN akşam slotu
+      if (!kisiAksamSlot.containsKey(k)) {
+        for (int asi in aksamSiralanmis) {
+          if (ataSlot(asi, k)) { kisiAksamSlot[k] = asi; break; }
+        }
       }
     }
 
@@ -1507,8 +1529,10 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
         kisiGeceSlot[k] = sabahSlotIdx;
       }
       // Akşam karşılığı: EN SON akşam slotu
-      for (int asi in aksamSiralanmis.reversed) {
-        if (ataSlot(asi, k)) { kisiAksamSlot[k] = asi; break; }
+      if (!kisiAksamSlot.containsKey(k)) {
+        for (int asi in aksamSiralanmis.reversed) {
+          if (ataSlot(asi, k)) { kisiAksamSlot[k] = asi; break; }
+        }
       }
     }
     for (var k in gece0809Secilenler) {
@@ -1516,8 +1540,10 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       if (sonSaatSlotIdx != -1 && ataSlot(sonSaatSlotIdx, k)) {
         kisiGeceSlot[k] = sonSaatSlotIdx;
       }
-      for (int asi in aksamSiralanmis.reversed) {
-        if (ataSlot(asi, k)) { kisiAksamSlot[k] = asi; break; }
+      if (!kisiAksamSlot.containsKey(k)) {
+        for (int asi in aksamSiralanmis.reversed) {
+          if (ataSlot(asi, k)) { kisiAksamSlot[k] = asi; break; }
+        }
       }
     }
 
@@ -1556,6 +1582,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     // diğer akşam slotlarında çalışan kişilerden tekrar ata.
     // (Bir kişi birden fazla akşam slotunda çalışabilir.)
     // DİKKAT: 00:00-03:00 veya 03:00-05:30 tutan kişiler hariç (dinlenmeleri lazım).
+    // DİKKAT: Bitişik (ardışık) akşam slotlarına aynı kişi konulmaz.
     Set<String> geceVeAraTutanlar = {};
     for (var entry in kisiGeceSlot.entries) {
       if (entry.value == geceSlotIdx || entry.value == araSlotIdx) {
@@ -1563,14 +1590,22 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       }
     }
     
-    for (int asi in aksamSiralanmis) {
+    for (int i = 0; i < aksamSiralanmis.length; i++) {
+      int asi = aksamSiralanmis[i];
       int kap = slotPozisyonlari[asi]?.length ?? 0;
       int mevcut = slotTakiKisiler[asi]!.length;
       if (mevcut >= kap) continue; // bu slot zaten dolu
       
+      // Bitişik slotları belirle (ardışık tura koyma yasağı)
+      Set<int> bitisikSlotlar = {};
+      if (i > 0) bitisikSlotlar.add(aksamSiralanmis[i - 1]);
+      if (i < aksamSiralanmis.length - 1) bitisikSlotlar.add(aksamSiralanmis[i + 1]);
+      
       // Bu slotta olmayan ama başka akşam slotunda çalışan kişileri bul
       for (int digerAsi in aksamSiralanmis) {
         if (digerAsi == asi) continue;
+        // Bitişik slottan kişi alma — ardışık çalışma yasağı
+        if (bitisikSlotlar.contains(digerAsi)) continue;
         for (var k in slotTakiKisiler[digerAsi]!) {
           if (slotTakiKisiler[asi]!.contains(k)) continue;
           if (geceVeAraTutanlar.contains(k)) continue; // gece/ara tutanlar tekrar çalışmasın
