@@ -1473,12 +1473,12 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
 
     // ── ÖN-DAĞITIM: SUP ONLY kişileri farklı akşam turlarına yay ──
     // Gündüzdeki gibi: her akşam turunda en fazla 1 SUP ONLY kişi olmalı
+    // ÖNEMLİ: Son akşam slotu gece slotuna bitişik olabilir, erken slotları tercih et
     List<String> supOnlyListesi = supOnlySecilenler.where((k) => geceListe.contains(k)).toList();
     Set<int> supOnlyAtanmisSlotlar = {};  // hangi akşam slotlarına supOnly atandı
     
+    // Son akşam slotu = gece slotuna bitişik olabilir, önce erken slotları doldur
     for (var k in supOnlyListesi) {
-      // Bu kişinin gece slotunu ata (eğer havuzda seçilmişse zaten atanacak, burada sadece akşam garantisi)
-      // Akşam slotunu seç: supOnly olmayan bir akşam slotu bul
       for (int asi in aksamSiralanmis) {
         if (supOnlyAtanmisSlotlar.contains(asi)) continue; // bu turda zaten supOnly var
         if (ataSlot(asi, k)) {
@@ -1487,6 +1487,15 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
           break;
         }
       }
+    }
+
+    // Yardımcı: Akşam slotu ile gece slotu bitişik mi? (ardışık çalışma kontrolü)
+    bool aksamGecebitisik(int aksamIdx, int geceIdx) {
+      if (aksamIdx < 0 || geceIdx < 0) return false;
+      // Akşam slotunun bitiş saati == gece slotunun başlangıç saati ise bitişik
+      String aksamBitis = saatler[aksamIdx].split(' - ')[1];
+      String geceBaslangic = saatler[geceIdx].split(' - ')[0];
+      return aksamBitis == geceBaslangic;
     }
 
     // ── HAVUZ-A: Gece1 (00:00-03:00) Seçilenler ──
@@ -1569,11 +1578,20 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       }
     }
 
-    // Kalanlar için gece ataması
+    // Kalanlar için gece ataması (bitişik akşam-gece kontrolü ile)
     for (var k in geceKalanHavuz) {
       if (kisiGeceSlot.containsKey(k)) continue;
+      int? aksamSlot = kisiAksamSlot[k];
       for (int gsi in geceSirali) {
+        // Ardışık çalışma yasağı: akşam slotu gece slotuna bitişik mi?
+        if (aksamSlot != null && aksamGecebitisik(aksamSlot, gsi)) continue;
         if (ataSlot(gsi, k)) { kisiGeceSlot[k] = gsi; break; }
+      }
+      // Fallback: bitişik kontrolü yüzünden hiçbir yere gidemedi ise, zorla ata
+      if (!kisiGeceSlot.containsKey(k)) {
+        for (int gsi in geceSirali) {
+          if (ataSlot(gsi, k)) { kisiGeceSlot[k] = gsi; break; }
+        }
       }
     }
 
