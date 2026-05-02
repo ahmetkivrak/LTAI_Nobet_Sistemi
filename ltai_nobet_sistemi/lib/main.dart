@@ -2723,8 +2723,8 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       for (var b in gosterilecek) {
         b.istatistik.forEach((k, v) {
           if (aggIstat.containsKey(k)) {
-            aggIstat[k]!['H_SAYI'] = (aggIstat[k]!['H_SAYI'] as int) + (v['H_SAYI'] as int);
-            aggIstat[k]!['E_SAYI'] = (aggIstat[k]!['E_SAYI'] as int) + (v['E_SAYI'] as int);
+            aggIstat[k]!['H_SAYI'] = (aggIstat[k]!['H_SAYI'] as int) + (v['H_SAYI'] as int? ?? 0);
+            aggIstat[k]!['E_SAYI'] = (aggIstat[k]!['E_SAYI'] as int) + (v['E_SAYI'] as int? ?? 0);
             aggIstat[k]!['ILK_S'] = (aggIstat[k]!['ILK_S'] as int) + ((v['ILK_S'] == true) ? 1 : 0);
             aggIstat[k]!['SON_S'] = (aggIstat[k]!['SON_S'] as int) + ((v['SON_S'] == true) ? 1 : 0);
             aggIstat[k]!['BK_S'] = (aggIstat[k]!['BK_S'] as int) + ((v['BK_S'] == true) ? 1 : 0);
