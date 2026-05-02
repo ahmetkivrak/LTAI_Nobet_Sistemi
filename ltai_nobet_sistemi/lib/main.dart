@@ -1469,64 +1469,54 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       return false;
     }
 
-    // Yardımcı: Akşam slotları arasından en az dolu olanı seç
-    int? enAzDoluAksamSlot(List<int> slotlar) {
-      int? best;
-      double bestOran = 2.0; // 1.0'dan büyük = dolu
-      for (int si in slotlar) {
-        int kap = slotPozisyonlari[si]?.length ?? 0;
-        if (kap == 0) continue;
-        int mevcut = slotTakiKisiler[si]!.length;
-        double oran = mevcut / kap;
-        if (oran < 1.0 && oran < bestOran) {
-          bestOran = oran;
-          best = si;
-        }
-      }
-      return best;
-    }
-
     // ── HAVUZ-A: Gece1 (00:00-03:00) Seçilenler ──
+    // Gece erken tur → Akşam erken tur (araya maksimum dinlenme)
     for (var k in gece1203Secilenler) {
       if (!geceListe.contains(k)) continue;
       // Gece slotuna sabitle
       if (geceSlotIdx != -1 && ataSlot(geceSlotIdx, k)) {
         kisiGeceSlot[k] = geceSlotIdx;
       }
-      // Akşam karşılığı: en az dolu akşam slotu
-      int? bestAksam = enAzDoluAksamSlot(aksamSiralanmis);
-      if (bestAksam != null && ataSlot(bestAksam, k)) { kisiAksamSlot[k] = bestAksam; }
+      // Akşam karşılığı: EN ERKEN akşam slotu
+      for (int asi in aksamSiralanmis) {
+        if (ataSlot(asi, k)) { kisiAksamSlot[k] = asi; break; }
+      }
     }
 
     // ── HAVUZ-B: ARA (03:00-05:30) Seçilenler ──
+    // Gece 2. tur → Akşam erken tur (gece1 ile aynı akşam turunda olabilir)
     for (var k in geceAraSecilenler) {
       if (!geceListe.contains(k)) continue;
       // ARA slotuna sabitle
       if (araSlotIdx != -1 && ataSlot(araSlotIdx, k)) {
         kisiGeceSlot[k] = araSlotIdx;
       }
-      // Akşam karşılığı: en az dolu akşam slotu
-      int? bestAksam = enAzDoluAksamSlot(aksamSiralanmis);
-      if (bestAksam != null && ataSlot(bestAksam, k)) { kisiAksamSlot[k] = bestAksam; }
+      // Akşam karşılığı: EN ERKEN akşam slotu (gece1 ile aynı yöne)
+      for (int asi in aksamSiralanmis) {
+        if (ataSlot(asi, k)) { kisiAksamSlot[k] = asi; break; }
+      }
     }
 
     // ── HAVUZ-C: Sabah (05:30-08:00) + Son Saat (08:00-09:00) Seçilenler ──
+    // Sabahçılar → Akşam SON tur (gece ortasında uyurlar)
     for (var k in gece0508Secilenler) {
       if (!geceListe.contains(k)) continue;
       if (sabahSlotIdx != -1 && ataSlot(sabahSlotIdx, k)) {
         kisiGeceSlot[k] = sabahSlotIdx;
       }
-      // Akşam karşılığı: en az dolu akşam slotu (son taraftan başla)
-      int? bestAksam = enAzDoluAksamSlot(aksamSiralanmis.reversed.toList());
-      if (bestAksam != null && ataSlot(bestAksam, k)) { kisiAksamSlot[k] = bestAksam; }
+      // Akşam karşılığı: EN SON akşam slotu
+      for (int asi in aksamSiralanmis.reversed) {
+        if (ataSlot(asi, k)) { kisiAksamSlot[k] = asi; break; }
+      }
     }
     for (var k in gece0809Secilenler) {
       if (!geceListe.contains(k)) continue;
       if (sonSaatSlotIdx != -1 && ataSlot(sonSaatSlotIdx, k)) {
         kisiGeceSlot[k] = sonSaatSlotIdx;
       }
-      int? bestAksam = enAzDoluAksamSlot(aksamSiralanmis.reversed.toList());
-      if (bestAksam != null && ataSlot(bestAksam, k)) { kisiAksamSlot[k] = bestAksam; }
+      for (int asi in aksamSiralanmis.reversed) {
+        if (ataSlot(asi, k)) { kisiAksamSlot[k] = asi; break; }
+      }
     }
 
     // ── HAVUZ-D: Seçilmemiş Kalanlar ──
@@ -1543,11 +1533,12 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     // Yorgunluk sırasına göre sırala
     geceKalanHavuz.sort((a, b) => _getArsivYorgunlukOrtalamasi(a).compareTo(_getArsivYorgunlukOrtalamasi(b)));
 
-    // Kalanlar için akşam ataması (en az dolu slota öncelik)
+    // Kalanlar için akşam ataması (sıralı — erken turdan başla)
     for (var k in geceKalanHavuz) {
       if (kisiAksamSlot.containsKey(k)) continue;
-      int? bestAksam = enAzDoluAksamSlot(aksamSiralanmis);
-      if (bestAksam != null && ataSlot(bestAksam, k)) { kisiAksamSlot[k] = bestAksam; }
+      for (int asi in aksamSiralanmis) {
+        if (ataSlot(asi, k)) { kisiAksamSlot[k] = asi; break; }
+      }
     }
 
     // Kalanlar için gece ataması
