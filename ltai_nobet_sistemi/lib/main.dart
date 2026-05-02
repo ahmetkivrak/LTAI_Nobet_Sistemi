@@ -1390,6 +1390,19 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
 
       if (isAra) {
         pozlar = ['TWR', 'DEL']; // ARA her zaman minimum
+      } else if (isGece) {
+        // Gece slotu (00:00-03:00 veya 23:30-xx): sadece TWR + DEL, SUP yok
+        pozlar = ['TWR', 'DEL'];
+        if (sTaramasi.isNotEmpty) {
+           int ilkSaat = sTaramasi.first;
+           for (var p in hPozisyonlar[ilkSaat]!) {
+              if (!p.startsWith('SUP') && !pozlar.contains(p)) {
+                 pozlar.add(p);
+                 int bitisH = (ilkSaat + 1) % 24;
+                 pozOtoNot[p] = " (-${bitisH.toString().padLeft(2, '0')}:00)";
+              }
+           }
+        }
       } else {
         for (int ah in sTaramasi) {
           if (hPozisyonlar[ah]!.length > pozlar.length) pozlar = List.from(hPozisyonlar[ah]!);
@@ -1558,6 +1571,29 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       if (kisiGeceSlot.containsKey(k)) continue;
       for (int gsi in geceSirali) {
         if (ataSlot(gsi, k)) { kisiGeceSlot[k] = gsi; break; }
+      }
+    }
+
+    // ── 2. GEÇİŞ: Akşam slotlarını tam doldur ──
+    // Eğer herhangi bir akşam slotunda hala boş pozisyon varsa,
+    // diğer akşam slotlarında çalışan kişilerden tekrar ata.
+    // (Bir kişi birden fazla akşam slotunda çalışabilir.)
+    for (int asi in aksamSiralanmis) {
+      int kap = slotPozisyonlari[asi]?.length ?? 0;
+      int mevcut = slotTakiKisiler[asi]!.length;
+      if (mevcut >= kap) continue; // bu slot zaten dolu
+      
+      // Bu slotta olmayan ama başka akşam slotunda çalışan kişileri bul
+      for (int digerAsi in aksamSiralanmis) {
+        if (digerAsi == asi) continue;
+        for (var k in slotTakiKisiler[digerAsi]!) {
+          if (slotTakiKisiler[asi]!.contains(k)) continue;
+          if (ataSlot(asi, k)) {
+            mevcut++;
+            if (mevcut >= kap) break;
+          }
+        }
+        if (mevcut >= kap) break;
       }
     }
 
