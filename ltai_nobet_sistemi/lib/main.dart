@@ -88,11 +88,11 @@ class PersonelKarnesi {
 // ═══════════════════════════════════════════════════
 class EkipVerisi {
   static const Map<String, List<String>> kadro = {
-    'A': ['IU', 'OK', 'OZ', 'GB', 'MS', 'RI', 'II', 'AL', 'IK', 'OG', 'TY', 'MB', 'EE', 'FU'],
-    'B': ['EA', 'BK', 'FK', 'NO', 'BC', 'FI', 'IB', 'BB', 'EP', 'FD', 'AS', 'AR', 'ZH'],
-    'C': ['OO', 'AV', 'AY', 'AT', 'BS', 'UY', 'SG', 'HU', 'UE', 'BN', 'NA', 'ME'],
-    'D': ['GP', 'AI', 'AK', 'BE', 'MK', 'AN', 'BA', 'BL', 'DE', 'MI', 'FL', 'YT', 'GI', 'AP', 'DO'],
-    'E': ['EL', 'HB', 'SE', 'EK', 'IA', 'RC', 'IG', 'KU', 'HM', 'YZ'],
+    'A': ['IU', 'GB', 'MS', 'TI', 'FZ', 'RI', 'AL', 'II', 'OG', 'OZ', 'TY', 'NA', 'EG', 'FF'],
+    'B': ['EA', 'BK', 'FK', 'NO', 'BI', 'FI', 'IB', 'BH', 'BN', 'FD', 'AS', 'KE', 'CK', 'ZH'],
+    'C': ['OO', 'AV', 'AG', 'AB', 'BS', 'UY', 'SG', 'HU', 'GN', 'OS', 'UM', 'BY', 'ME', 'NA'],
+    'D': ['GP', 'AI', 'AK', 'BE', 'MK', 'AN', 'BL', 'DE', 'BA', 'MI', 'FL', 'YT', 'GI', 'AP', 'DO'],
+    'E': ['EL', 'HB', 'SE', 'OE', 'EK', 'FG', 'IA', 'RC', 'IG', 'KU', 'MN', 'EY', 'HM', 'YZ', 'EN'],
   };
 
   static const String masterSifre = 'ltai2026master';
