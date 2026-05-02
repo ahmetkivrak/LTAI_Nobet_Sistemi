@@ -384,7 +384,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     return saatSenaryosu == 1 ? geceKlasik : geceAlengirli;
   }
 
-  int t3to4 = 28; int t4to5 = 35; int t5to6 = 48; int t6to7 = 68;
+  int t3to4 = 28; int t4to5 = 35; int t5to6 = 54; int t6to7 = 68;
   
   Map<String, List<TrafikVerisi>> _haftalikTrafikKasa = {};
   
@@ -2484,7 +2484,12 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                     int barTotal = (_turFiltresi == "IFR") ? t.ifrToplam : ((_turFiltresi == "VFR") ? t.vfrToplam : t.genelToplam);
                     
                     double ideal = _getIdealLevel(barTotal, l34: tempT3to4, l45: tempT4to5, l56: tempT5to6, l67: tempT6to7);
-                    Color c = ideal <= 3.0 ? Colors.green : (ideal <= 4.5 ? Colors.orange : Colors.redAccent);
+                    Color c;
+                    if (ideal <= 3.0) c = Colors.green;
+                    else if (ideal <= 4.0) c = Colors.orange;
+                    else if (ideal <= 5.0) c = Colors.redAccent;
+                    else if (ideal <= 6.0) c = Colors.red.shade900;
+                    else c = Colors.purple.shade900;
 
                     return Padding(
                       padding: const EdgeInsets.symmetric(vertical: 2.0),
