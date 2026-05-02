@@ -500,6 +500,14 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     
     double ideal = _getIdealLevel(trafik);
     
+    // Anchor modu (arka planda çalışır): Kullanıcı bir senaryo seçtiyse, AI açık olsa bile ±1 kademe sınırı uygula
+    bool hasAnchor = (defaultLvl != hakimSeviye);
+    if (hasAnchor) {
+      if (ideal < defaultLvl - 1.0) return defaultLvl - 1.0;
+      if (ideal > defaultLvl + 1.0) return defaultLvl + 1.0;
+      return ideal;
+    }
+    
     // Saf AI modu (anchor yok) — trafiğe tam güven
     return ideal;
   }
@@ -3604,7 +3612,8 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                   borderColor = Colors.white70;
                   borderW = 2.0;
                   textColor = Colors.black;
-                  suffix = ' ⚓';
+                  // Suffix boş bırakıldı (UI'da anchor simgesi istenmiyor)
+                  suffix = '';
                 } else if (iA) {
                   borderColor = Colors.greenAccent;
                   borderW = 2.0;
