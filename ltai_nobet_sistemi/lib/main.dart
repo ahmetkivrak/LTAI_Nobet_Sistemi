@@ -463,6 +463,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
 
   Map<String, Map<int, Map<String, String>>> _kilitliSaatlerTarihli = {}; // Pin: sadece görünen saat notu, algoritmayı etkilemez
   Map<String, Map<int, Map<String, String>>> _manuelAtananKisiler = {}; // Hangi slota ve pozisyona manuel kilitlendiği (Algoritmayı zorlar)
+  Map<String, String> _manuelBkTarihli = {}; // Hangi güne hangi BK manuel seçildi
   String get _aktifTarihVeMod => "${_aktifTarihStr}_${isGunduzVardiyasi ? 'G' : 'N'}";
 
 
@@ -498,14 +499,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     if (isPinned) return defaultLvl;
     
     double ideal = _getIdealLevel(trafik);
-    
-    // Kullanıcı bir senaryo seçtiyse (anchor), AI açık olsa bile ±1 kademe sınırı uygula
-    bool hasAnchor = (defaultLvl != hakimSeviye);
-    if (hasAnchor) {
-      if (ideal < defaultLvl - 1.0) return defaultLvl - 1.0;
-      if (ideal > defaultLvl + 1.0) return defaultLvl + 1.0;
-      return ideal;
-    }
     
     // Saf AI modu (anchor yok) — trafiğe tam güven
     return ideal;
@@ -1072,11 +1065,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     Map<String, int> kisiNumara = {};
     Set<int> kullanilanlar = {};
     
-    // Uygunluk kontrolü (BK burada yok — BK mikro seçim değil, Phase 2'de yönetilir)
-    bool _numaraUygun(String k, int num) {
-      return true; // ORTA kısıtı kaldırıldı — sadece İLK/SON yönlendirme yapar
-    }
-    
     // Numaraları tur sayısına göre sırala (çoktan aza)
     List<int> tumNumaralar = List.generate(aCount, (i) => i);
     tumNumaralar.sort((a, b) {
@@ -1097,7 +1085,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       int? bestNum; int bestScore = -999999;
       for (var num in tumNumaralar) {
         if (kullanilanlar.contains(num)) continue;
-        if (!_numaraUygun(k, num)) continue;
         int tur = numaraSlotlari[num]?.length ?? 0;
         int score = tur * 10000; // Çok tur en önemli
         if (isSon) score += (_numAvg(num) * 100).toInt(); // Geç slot bonus
@@ -1113,7 +1100,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       int? bestNum; int bestScore = 999999;
       for (var num in tumNumaralar) {
         if (kullanilanlar.contains(num)) continue;
-        if (!_numaraUygun(k, num)) continue;
         int tur = numaraSlotlari[num]?.length ?? 0;
         if (tur < bestScore) { bestScore = tur; bestNum = num; }
       }
@@ -1137,7 +1123,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       int? bestNum; int bestScore = -999999;
       for (var num in tumNumaralar) {
         if (kullanilanlar.contains(num)) continue;
-        if (!_numaraUygun(k, num)) continue;
         List<int> slots = numaraSlotlari[num] ?? [];
         int score = 0;
         int cakisma = 0;
@@ -1181,7 +1166,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       int? bestNum; int bestScore = -999999;
       for (var num in tumNumaralar) {
         if (kullanilanlar.contains(num)) continue;
-        if (!_numaraUygun(k, num)) continue;
         List<int> slots = numaraSlotlari[num] ?? [];
         
         int score = 0;
@@ -1240,19 +1224,11 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       int? assignedNum;
       // Önce kısıtlamaya uyan numara bulmaya çalış
       for (int i = 0; i < kalanNumaralar.length; i++) {
-        int num = kalanNumaralar[i];
-        if (_numaraUygun(k, num)) {
-          assignedNum = num;
-          kalanNumaralar.removeAt(i);
-          break;
-        }
+        assignedNum = kalanNumaralar[i];
+        kalanNumaralar.removeAt(i);
+        break;
       }
-      // Kısıtlamaya uyan numara bulunamadıysa ORTA kısıtını göz ardı ederek zorla ata
-      // (Kişiyi tamamen bord dışında bırakmak yerine)
-      if (assignedNum == null && kalanNumaralar.isNotEmpty) {
-        assignedNum = kalanNumaralar.first;
-        kalanNumaralar.removeAt(0);
-      }
+      
       // Tüm numaralar dolmuşsa bile kisiNumara'ya ekleme — fallback olarak tüm listeden al
       if (assignedNum == null) {
         // Hiç numara kalmadı ama kişiyi bırakma: en az kullananı bul
@@ -2204,7 +2180,9 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     }
 
     String guncelBK = "-";
-    if (isGunduzVardiyasi && saatler.length > 1) {
+    if (_manuelBkTarihli.containsKey(_aktifTarihVeMod)) {
+      guncelBK = _manuelBkTarihli[_aktifTarihVeMod]!;
+    } else if (isGunduzVardiyasi && saatler.length > 1) {
        int sondanBirOnceki = saatler.length - 2;
        if (gunlukPlan.containsKey(sondanBirOnceki) && gunlukPlan[sondanBirOnceki]!.containsKey("DEL")) {
           String delKisi = gunlukPlan[sondanBirOnceki]!["DEL"]!;
@@ -3303,7 +3281,37 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
         Padding(padding: const EdgeInsets.only(top: 8.0, bottom: 8.0), child: Row(children: [
           Container(constraints: const BoxConstraints(minWidth: 400), padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.redAccent.withOpacity(0.1), border: Border.all(color: Colors.redAccent.withOpacity(0.5)), borderRadius: BorderRadius.circular(8)), child: Text("❌ İZİNLİLER: ${izinliler.isEmpty ? 'Yok' : izinliler.join(', ')}", style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.bold, fontSize: 10), overflow: TextOverflow.ellipsis)),
           if (isGunduzVardiyasi) const SizedBox(width: 10),
-          if (isGunduzVardiyasi) Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: themeBgColor, border: Border.all(color: themeColor.withOpacity(0.5)), borderRadius: BorderRadius.circular(8)), child: Center(child: Text("☕ BİZİMLE KAL: ${sonBord.bizimleKal}", style: TextStyle(color: themeColor, fontWeight: FontWeight.bold, fontSize: 10)))),
+          if (isGunduzVardiyasi) GestureDetector(
+            onTap: () {
+               showDialog(context: context, builder: (ctx) => AlertDialog(
+                  backgroundColor: const Color(0xFF1E1E1E),
+                  title: const Text('☕ Bizimle Kal Seçimi', style: TextStyle(color: Colors.orangeAccent)),
+                  content: Wrap(spacing: 8, runSpacing: 8, children: [
+                     ...tumPersonelHavuzu.where((k) => !gunlukDurum[k]!.contains('OFF') && !gunlukDurum[k]!.contains('OJTI')).map((k) => InkWell(
+                        onTap: () {
+                           setState(() {
+                              _manuelBkTarihli[_aktifTarihVeMod] = k;
+                              _gruplariGuncelle(arsiveKaydet: true, pinleriTemizle: false);
+                           });
+                           Navigator.pop(ctx);
+                        },
+                        child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: sonBord.bizimleKal == k ? Colors.orangeAccent.withOpacity(0.3) : Colors.white12, borderRadius: BorderRadius.circular(4)), child: Text(k, style: const TextStyle(color: Colors.white))),
+                     )),
+                     InkWell(
+                        onTap: () {
+                           setState(() {
+                              _manuelBkTarihli.remove(_aktifTarihVeMod);
+                              _gruplariGuncelle(arsiveKaydet: true, pinleriTemizle: false);
+                           });
+                           Navigator.pop(ctx);
+                        },
+                        child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.redAccent.withOpacity(0.3), borderRadius: BorderRadius.circular(4)), child: const Text('Sıfırla (AI)', style: TextStyle(color: Colors.white))),
+                     )
+                  ]),
+               ));
+            },
+            child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: themeBgColor, border: Border.all(color: themeColor.withOpacity(0.5)), borderRadius: BorderRadius.circular(8)), child: Center(child: Text("☕ BİZİMLE KAL: ${sonBord.bizimleKal}${_manuelBkTarihli.containsKey(_aktifTarihVeMod) ? ' (M)' : ''}", style: TextStyle(color: themeColor, fontWeight: FontWeight.bold, fontSize: 10)))),
+          ),
         ])),
       ])))),
     ]);
