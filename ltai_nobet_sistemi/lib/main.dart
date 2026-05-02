@@ -1688,6 +1688,15 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
           // if (supOnlySecilenler.contains(k)) continue; 
           
           int score = 0;
+          
+          // Gece slotu atamasında: 00:00-03:00 seçilenleri, gece yarısı kapanan pozisyonlara atama (örn: GND)
+          if (slotIdx == geceSlotIdx && gece1203Secilenler.contains(k)) {
+            String? otoNot = _pozOtoNotlar[slotIdx]?[pos];
+            if (otoNot != null && otoNot.contains('(-')) {
+              score -= 50000; // Büyük eksi puan ile atanmasını engelle
+            }
+          }
+          
           var kYetki = yetkiler[k] ?? <String>{};
           bool yetkili = kYetki.isEmpty || kYetki.contains(pos) || kYetki.contains(core);
           if (!yetkili) score -= 10000;
