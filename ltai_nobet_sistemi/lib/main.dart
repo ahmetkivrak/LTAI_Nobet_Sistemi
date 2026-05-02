@@ -1379,8 +1379,9 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
         pozlar = ['TWR', 'DEL'];
         if (sTaramasi.isNotEmpty) {
            int ilkSaat = sTaramasi.first;
+           const sabitGecePozlar = {'TWR', 'TWR_W', 'DEL'}; // Sabit bordlar — saat notu yazma
            for (var p in hPozisyonlar[ilkSaat]!) {
-              if (!p.startsWith('SUP') && !pozlar.contains(p)) {
+              if (!p.startsWith('SUP') && !pozlar.contains(p) && !sabitGecePozlar.contains(p)) {
                  pozlar.add(p);
                  int bitisH = (ilkSaat + 1) % 24;
                  pozOtoNot[p] = " (-${bitisH.toString().padLeft(2, '0')}:00)";
