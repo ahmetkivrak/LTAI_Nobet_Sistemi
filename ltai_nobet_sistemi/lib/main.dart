@@ -2537,7 +2537,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                               )
                             )
                           ),
-                          SizedBox(width: 55, child: Padding(padding: const EdgeInsets.only(left: 12), child: Text("S$ideal", style: const TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.bold)))),
+                          SizedBox(width: 55, child: Padding(padding: const EdgeInsets.only(left: 12), child: Text(ideal <= 3.0 ? "BAZ" : "S${ideal.toInt()}", style: const TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.bold)))),
                         ]
                       )
                     );
