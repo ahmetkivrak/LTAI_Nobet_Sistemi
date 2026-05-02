@@ -3924,13 +3924,13 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
   
   // Öntanımlı Rozetler (Kalıcı ve dinamik olması için sınıf seviyesine taşındı)
   static const Set<String> _builtInTagNames = {
-    "🚨 PİST/NAV", "⚠️ TAKSİ/APRON", "⚡ Elektrik/Electric",
+    "🚨 PİST/NAV", "⚠️ TAKSİ/APRON", "⚡ Elektrik",
     "ℹ️ GENEL", "🌦️ METEOROLOJİ", "🚧 MANİA/VİNÇ",
   };
   Map<String, List<dynamic>> _allTags = {
     "🚨 PİST/NAV": [Colors.redAccent, 0],
     "⚠️ TAKSİ/APRON": [Colors.orangeAccent, 1],
-    "⚡ Elektrik/Electric": [Colors.yellowAccent, 2],
+    "⚡ Elektrik": [Colors.yellowAccent, 2],
     "ℹ️ GENEL": [Colors.lightBlueAccent, 3],
     "🌦️ METEOROLOJİ": [Colors.tealAccent, 5],
     "🚧 MANİA/VİNÇ": [Colors.grey, 6],
@@ -4207,7 +4207,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       } else if (upper.contains("CRANE") || upper.contains("MAST") || upper.contains("OBST") || upper.contains("VINC") || upper.contains("VİNÇ")) {
         return ["🚧 MANİA/VİNÇ", Colors.grey, 6];
       } else if (upper.contains("FLASHING") || upper.contains("SEQUENCED") || upper.contains("EDGE LGT") || upper.contains("PAPI") || upper.contains("IŞIK") || upper.contains("ISIK") || upper.contains("YANIP") || upper.contains("LEVHA") || RegExp(r'\bLIGHT\b|\bLIGHTS\b|\bSIGN\b|\bSIGNS\b').hasMatch(upper)) {
-        return ["⚡ Elektrik/Electric", Colors.yellowAccent, 2];
+        return ["⚡ Elektrik", Colors.yellowAccent, 2];
       } else if (upper.contains("TWY") || upper.contains("TAXIWAY") || upper.contains("APRON") || upper.contains("STAND") || upper.contains("GATE") || upper.contains("PARK") || upper.contains("PRKG")) {
         return ["⚠️ TAKSİ/APRON", Colors.orangeAccent, 1];
       } else if (upper.contains("ANEMOMETRE") || upper.contains("ANEMOMETER") ||
