@@ -1578,6 +1578,14 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     // Eğer herhangi bir akşam slotunda hala boş pozisyon varsa,
     // diğer akşam slotlarında çalışan kişilerden tekrar ata.
     // (Bir kişi birden fazla akşam slotunda çalışabilir.)
+    // DİKKAT: 00:00-03:00 veya 03:00-05:30 tutan kişiler hariç (dinlenmeleri lazım).
+    Set<String> geceVeAraTutanlar = {};
+    for (var entry in kisiGeceSlot.entries) {
+      if (entry.value == geceSlotIdx || entry.value == araSlotIdx) {
+        geceVeAraTutanlar.add(entry.key);
+      }
+    }
+    
     for (int asi in aksamSiralanmis) {
       int kap = slotPozisyonlari[asi]?.length ?? 0;
       int mevcut = slotTakiKisiler[asi]!.length;
@@ -1588,6 +1596,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
         if (digerAsi == asi) continue;
         for (var k in slotTakiKisiler[digerAsi]!) {
           if (slotTakiKisiler[asi]!.contains(k)) continue;
+          if (geceVeAraTutanlar.contains(k)) continue; // gece/ara tutanlar tekrar çalışmasın
           if (ataSlot(asi, k)) {
             mevcut++;
             if (mevcut >= kap) break;
