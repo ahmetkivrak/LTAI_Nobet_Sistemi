@@ -3,8 +3,16 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart' as cloud_firestore;
+import 'firebase_options.dart';
+import 'dart:async';
 
-void main() => runApp(const LtaiApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  runApp(const LtaiApp());
+}
 
 class TrafikVerisi {
   final int gelen;    
@@ -5300,7 +5308,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
         
         return AlertDialog(
           backgroundColor: const Color(0xFF1A1A1A),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white10)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15), side: const BorderSide(color: Colors.white10)),
           title: Row(children: [
             const Icon(Icons.edit_note, color: Colors.amberAccent, size: 24),
             const SizedBox(width: 10),
@@ -5353,7 +5361,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                 String metin = metinC.text.trim();
                 if (metin.isEmpty) return;
                 
-                FirebaseFirestore.instance.collection('hoto').add({
+                cloud_firestore.FirebaseFirestore.instance.collection('hoto').add({
                   'ekip': _aktifEkip,
                   'vardiya': isGunduzVardiyasi ? 'Gündüz' : 'Gece',
                   'tarih': _aktifTarihStr,
