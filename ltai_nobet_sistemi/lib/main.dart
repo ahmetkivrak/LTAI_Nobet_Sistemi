@@ -3362,7 +3362,15 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     return Column(
       mainAxisSize: MainAxisSize.min, 
       children: [
-      Expanded(child: InteractiveViewer(minScale: 0.3, maxScale: 8.0, child: SingleChildScrollView(scrollDirection: Axis.vertical, child: FittedBox(fit: BoxFit.fitWidth, alignment: Alignment.topCenter, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Expanded(child: LayoutBuilder(builder: (context, constraints) {
+        return InteractiveViewer(
+          minScale: 0.3, maxScale: 8.0,
+          constrained: false,
+          boundaryMargin: const EdgeInsets.all(double.infinity),
+          child: SizedBox(
+            width: constraints.maxWidth,
+            child: FittedBox(fit: BoxFit.fitWidth, alignment: Alignment.topCenter,
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         DataTable(columnSpacing: 15, dataRowHeight: 65, headingRowHeight: 36, border: TableBorder.all(color: borderColor, width: 1), headingRowColor: MaterialStateProperty.all(Colors.black),
           columns: [ 
             const DataColumn(label: SizedBox(width: 40, child: Center(child: Text("")))),
@@ -3494,7 +3502,9 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
             child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: themeBgColor, border: Border.all(color: themeColor.withOpacity(0.5)), borderRadius: BorderRadius.circular(8)), child: Center(child: Text("☕ BİZİMLE KAL: ${sonBord.bizimleKal}${_manuelBkTarihli.containsKey(_aktifTarihVeMod) ? ' (M)' : ''}", style: TextStyle(color: themeColor, fontWeight: FontWeight.bold, fontSize: 10)))),
           ),
         ])),
-      ]))))),
+      ]))),
+        );
+      })),
     ]);
   }
 
