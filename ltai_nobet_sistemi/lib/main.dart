@@ -3006,7 +3006,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                  DataCell(Text("${e.value['OFF_S'] > 0 ? e.value['OFF_S'] : '-'}", style: const TextStyle(color: Colors.redAccent, fontSize: 11, fontWeight: FontWeight.bold))), 
               ]
             ])).toList(),
-        ))))));
+        )))));
       }
 
       return AlertDialog(
