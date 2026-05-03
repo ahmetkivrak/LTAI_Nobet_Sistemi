@@ -152,10 +152,16 @@ class EkipVerisi {
 
   /// Kaydedilmiş şifreleri yükle
   static Future<void> sifreleriYukle() async {
-    final prefs = await SharedPreferences.getInstance();
-    for (var ekip in ['A', 'B', 'C', 'D', 'E']) {
-      String? saved = prefs.getString('sifre_$ekip');
-      if (saved != null) sifreler[ekip] = saved;
+    try {
+      var snapshot = await FirebaseFirestore.instance.collection('ayarlar').doc('sifreler').get();
+      if (snapshot.exists) {
+        Map<String, dynamic> data = snapshot.data()!;
+        for (var ekip in ['A', 'B', 'C', 'D', 'E']) {
+          if (data.containsKey(ekip)) sifreler[ekip] = data[ekip].toString();
+        }
+      }
+    } catch(e) {
+      debugPrint("Sifre Firebase okuma hatasi: $e");
     }
   }
 
@@ -164,8 +170,13 @@ class EkipVerisi {
     if (sifreler[ekip] != eskiSifre && eskiSifre != masterSifre) return false;
     if (yeniSifre.length < 4) return false;
     sifreler[ekip] = yeniSifre;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('sifre_$ekip', yeniSifre);
+    try {
+      await FirebaseFirestore.instance.collection('ayarlar').doc('sifreler').set({
+        ekip: yeniSifre
+      }, SetOptions(merge: true));
+    } catch(e) {
+      debugPrint("Sifre Firebase yazma hatasi: $e");
+    }
     return true;
   }
 
@@ -3351,7 +3362,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     return Column(
       mainAxisSize: MainAxisSize.min, 
       children: [
-      Expanded(child: InteractiveViewer(constrained: false, minScale: 0.1, maxScale: 4.0, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Expanded(child: InteractiveViewer(minScale: 1.0, maxScale: 8.0, child: FittedBox(fit: BoxFit.contain, alignment: Alignment.topCenter, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         DataTable(columnSpacing: 15, dataRowHeight: 65, headingRowHeight: 36, border: TableBorder.all(color: borderColor, width: 1), headingRowColor: MaterialStateProperty.all(Colors.black),
           columns: [ 
             const DataColumn(label: SizedBox(width: 40, child: Center(child: Text("")))),
@@ -3483,7 +3494,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
             child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: themeBgColor, border: Border.all(color: themeColor.withOpacity(0.5)), borderRadius: BorderRadius.circular(8)), child: Center(child: Text("☕ BİZİMLE KAL: ${sonBord.bizimleKal}${_manuelBkTarihli.containsKey(_aktifTarihVeMod) ? ' (M)' : ''}", style: TextStyle(color: themeColor, fontWeight: FontWeight.bold, fontSize: 10)))),
           ),
         ])),
-      ]))),
+      ])))),
     ]);
   }
 
