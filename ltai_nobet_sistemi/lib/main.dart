@@ -580,7 +580,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     _loadNotamPrefs(); // Rozet tercihlerini yükle
     _loadPersonelPrefs(); // Kişi listesi hafızadan yükle
     _loadTakvimIzinler().then((_) => _takvimdenIzinUygula()); // Takvim izinlerini yükle ve uygula
-    _hotoNotlariniYukle(); // HOTO notlarını yükle
+    _hotoNotlariniDinle(); // Firebase'den anlık HOTO dinle
   }
 
   void _tariheGoreVerileriGuncelle() {
@@ -5129,23 +5129,26 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
   // HOTO (Devir/Teslim) Not Sistemi
   // ═══════════════════════════════════════════════════
   
-  Future<void> _hotoNotlariniYukle() async {
-    final prefs = await SharedPreferences.getInstance();
-    String? raw = prefs.getString('hoto_notlari');
-    if (raw != null) {
-      try {
-        List<dynamic> parsed = json.decode(raw);
-        _hotoNotlari = parsed.map((e) => Map<String, dynamic>.from(e)).toList();
-        // 24 saat eski notları temizle
-        int now = DateTime.now().millisecondsSinceEpoch;
-        _hotoNotlari.removeWhere((n) => (now - (n['timestamp'] ?? 0)) > 24 * 60 * 60 * 1000);
-      } catch (_) {}
-    }
+  cloud_firestore.FirebaseFirestore get _firestore => cloud_firestore.FirebaseFirestore.instance;
+  StreamSubscription? _hotoSubscription;
+
+  void _hotoNotlariniDinle() {
+    _hotoSubscription?.cancel();
+    _hotoSubscription = _firestore.collection('hoto').snapshots().listen((snapshot) {
+      int now = DateTime.now().millisecondsSinceEpoch;
+      if (!mounted) return;
+      setState(() {
+        _hotoNotlari = snapshot.docs.map((doc) {
+          var data = doc.data();
+          data['id'] = doc.id;
+          return data;
+        }).where((n) => (now - (n['timestamp'] ?? 0)) <= 24 * 60 * 60 * 1000).toList();
+      });
+    });
   }
 
   Future<void> _hotoNotlariniKaydet() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('hoto_notlari', json.encode(_hotoNotlari));
+    // Artık Firebase Stream ile yönetiliyor, yerel kayda gerek yok.
   }
 
   int get _okunmamisHotoSayisi => _hotoNotlari.where((n) => 
@@ -5153,8 +5156,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
   ).length;
 
   void _hotoEkraniAc() {
-    _hotoNotlariniYukle().then((_) {
-      if (!mounted) return;
+    if (!mounted) return;
       showDialog(context: context, builder: (ctx) {
         return StatefulBuilder(builder: (ctx, setD) {
           // Sadece diğer ekiplerden gelen notları göster (kendi notlarımızı da alt kısımda gösterebiliriz)
@@ -5209,7 +5211,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                     GestureDetector(
                       onTap: () => setD(() {
                         not['okunduMu'] = true;
-                        _hotoNotlariniKaydet();
+                        _firestore.collection('hoto').doc(not['id']).update({'okunduMu': true});
                         setState(() {});
                       }),
                       child: Container(
@@ -5227,7 +5229,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                     GestureDetector(
                       onTap: () => setD(() {
                         _hotoNotlari.remove(not);
-                        _hotoNotlariniKaydet();
+                        _firestore.collection('hoto').doc(not['id']).delete();
                         setState(() {});
                       }),
                       child: const Icon(Icons.delete_outline, size: 16, color: Colors.redAccent),
@@ -5296,8 +5298,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
           );
         });
       });
-    });
-  }
+    }
 
   void _hotoNotYazDialog() {
     TextEditingController metinC = TextEditingController();
