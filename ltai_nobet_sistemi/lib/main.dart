@@ -2931,6 +2931,13 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                }
              ),
              if (hedefSekme == 1 && seciliAralik != null) IconButton(icon: const Icon(Icons.clear, color: Colors.redAccent, size: 16), onPressed: () => setP(() => seciliAralik = null)),
+             const SizedBox(width: 10),
+             Container(width: 1, height: 24, color: Colors.white24),
+             IconButton(
+               icon: const Icon(Icons.lock_outline, color: Colors.amber, size: 24),
+               tooltip: "Şifre Değiştir",
+               onPressed: () { Navigator.pop(context); _sifreDegistirDialog(); }
+             ),
           ]),
         ]),
         content: SizedBox(width: 1050, height: 600, child: contentWidget),
@@ -3863,11 +3870,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                tooltip: "İstatistikler (Kürek Mahkumları)",
                onPressed: () { Navigator.pop(context); _arsivVeIstatistikPenceresiniAc(hedefSekme: 1); }
             ),
-            IconButton(
-               icon: Icon(Icons.lock_outlined, color: isGunduzVardiyasi ? Colors.orangeAccent : Colors.indigoAccent),
-               tooltip: "Şifre Değiştir",
-               onPressed: () { Navigator.pop(context); _sifreDegistirDialog(); }
-            ),
+            // Şifre değiştirme butonu Arşiv ekranına taşındı.
           ])),
         ])),
         actions: [
@@ -3904,42 +3907,49 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
   Map<String, String> _customNotamTags = {}; // id -> tagName
   Set<String> _collapsedEnglish = {}; // tracks collapsed English content
 
-  // ── Personel Kalıcılığı (SharedPreferences) ──
-  static const String _personelVersion = 'v3'; // Versiyon değişince önbellekteki eski liste göz ardı edilir
+  // ── Personel Kalıcılığı (Firebase Firestore) ──
   Future<void> _loadPersonelPrefs() async {
-    final prefs = await SharedPreferences.getInstance();
-    String vKey = 'savedPersonelVersion_$_aktifEkip';
-    String pKey = 'savedPersonel_$_aktifEkip';
-    // Versiyon kontrolu: eski önbellekte farklı versiyon varsa personeli kod listesiyle başlat
-    String savedVersion = prefs.getString(vKey) ?? '';
-    if (savedVersion != _personelVersion) {
-      // Önbellek versiyonu eski — ilk kayda zorla (kod listesindeki varsayılanı kaydet)
-      await prefs.setString(vKey, _personelVersion);
-      await prefs.setString(pKey, json.encode(tumPersonelHavuzu));
-      return; // Kod listesindeki varsayılan listeyi kullan
-    }
-    String? pJson = prefs.getString(pKey);
-    if (pJson != null) {
-      try {
-        List<dynamic> saved = json.decode(pJson);
+    try {
+      var doc = await _firestore.collection('personel_listeleri').doc(_aktifEkip).get();
+      if (doc.exists && doc.data() != null) {
+        List<dynamic> saved = doc.data()!['liste'] ?? [];
+        if (saved.isNotEmpty) {
+          if (!mounted) return;
+          setState(() {
+            tumPersonelHavuzu.clear();
+            tumPersonelHavuzu.addAll(List<String>.from(saved));
+            for (var k in tumPersonelHavuzu) {
+              if (!_gunlukDurumGunduz.containsKey(k)) _gunlukDurumGunduz[k] = {'A'};
+              if (!_gunlukDurumGece.containsKey(k)) _gunlukDurumGece[k] = {'A'};
+            }
+          });
+          _gruplariGuncelle(arsiveKaydet: false);
+          return;
+        }
+      }
+      
+      // Firestore'da yoksa veya boşsa varsayılan listeyi yükle ve Firestore'a kaydet
+      if (EkipVerisi.kadro.containsKey(_aktifEkip)) {
+        if (!mounted) return;
         setState(() {
           tumPersonelHavuzu.clear();
-          tumPersonelHavuzu.addAll(List<String>.from(saved));
-          for (var k in tumPersonelHavuzu) {
-            if (!_gunlukDurumGunduz.containsKey(k)) _gunlukDurumGunduz[k] = {'A'};
-            if (!_gunlukDurumGece.containsKey(k)) _gunlukDurumGece[k] = {'A'};
-          }
+          tumPersonelHavuzu.addAll(EkipVerisi.kadro[_aktifEkip]!);
         });
-        _gruplariGuncelle(arsiveKaydet: false);
-      } catch (e) {
-        debugPrint("Personel Prefs parse hatasi: $e");
+        _savePersonelPrefs();
       }
+    } catch (e) {
+      debugPrint("Personel Firebase parse hatasi: $e");
     }
   }
 
   Future<void> _savePersonelPrefs() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('savedPersonel_$_aktifEkip', json.encode(tumPersonelHavuzu));
+    try {
+      await _firestore.collection('personel_listeleri').doc(_aktifEkip).set({
+        'liste': tumPersonelHavuzu,
+      }, cloud_firestore.SetOptions(merge: true));
+    } catch (e) {
+      debugPrint("Personel Firebase save hatasi: $e");
+    }
   }
 
   // ── Rozet Kalıcılığı (SharedPreferences) ──
@@ -5137,12 +5147,20 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     _hotoSubscription = _firestore.collection('hoto').snapshots().listen((snapshot) {
       int now = DateTime.now().millisecondsSinceEpoch;
       if (!mounted) return;
+      var mappedDocs = snapshot.docs.map((doc) {
+        var data = doc.data();
+        data['id'] = doc.id;
+        return data;
+      }).toList();
+
+      for (var n in mappedDocs) {
+        if ((now - (n['timestamp'] ?? 0)) > 24 * 60 * 60 * 1000) {
+          _firestore.collection('hoto').doc(n['id']).delete();
+        }
+      }
+
       setState(() {
-        _hotoNotlari = snapshot.docs.map((doc) {
-          var data = doc.data();
-          data['id'] = doc.id;
-          return data;
-        }).where((n) => (now - (n['timestamp'] ?? 0)) <= 24 * 60 * 60 * 1000).toList();
+        _hotoNotlari = mappedDocs.where((n) => (now - (n['timestamp'] ?? 0)) <= 24 * 60 * 60 * 1000).toList();
       });
     });
   }
