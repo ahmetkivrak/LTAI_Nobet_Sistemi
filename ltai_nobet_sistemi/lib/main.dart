@@ -2820,7 +2820,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     return DataTable(
         headingRowHeight: 40.0, 
         dataRowHeight: rowH,
-        headingRowColor: WidgetStateProperty.all(Colors.blueAccent.withOpacity(0.15)),
+        headingRowColor: MaterialStateProperty.all(Colors.blueAccent.withOpacity(0.15)),
         headingTextStyle: TextStyle(fontWeight: FontWeight.bold, color: Colors.lightBlueAccent, fontSize: fontS),
         dataTextStyle: TextStyle(color: Colors.white, fontSize: fontS),
         columnSpacing: 25,
@@ -3369,9 +3369,10 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
           boundaryMargin: const EdgeInsets.all(double.infinity),
           child: SizedBox(
             width: constraints.maxWidth,
-            child: FittedBox(fit: BoxFit.fitWidth, alignment: Alignment.topCenter,
+            height: constraints.maxHeight,
+            child: FittedBox(fit: BoxFit.contain, alignment: Alignment.topCenter,
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        DataTable(columnSpacing: 15, dataRowHeight: 65, headingRowHeight: 36, border: TableBorder.all(color: borderColor, width: 1), headingRowColor: WidgetStateProperty.all(Colors.black),
+        DataTable(columnSpacing: 15, dataRowHeight: 65, headingRowHeight: 36, border: TableBorder.all(color: borderColor, width: 1), headingRowColor: MaterialStateProperty.all(Colors.black),
           columns: [ 
             const DataColumn(label: SizedBox(width: 40, child: Center(child: Text("")))),
             DataColumn(label: Text(_aktifTarihStr, style: TextStyle(color: themeColor, fontWeight: FontWeight.bold, fontSize: 12))), 
@@ -4468,15 +4469,19 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
 
       return AlertDialog(
         backgroundColor: const Color(0xFF1E1E1E),
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        title: Wrap(
+          spacing: 10,
+          runSpacing: 8,
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            Row(children: [
+            Row(mainAxisSize: MainAxisSize.min, children: [
               const Icon(Icons.assignment_late, color: Colors.amber, size: 24),
               const SizedBox(width: 10),
               Text("LTAI NOTAM (${sortedNotams.length})", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
             ]),
             Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(notamGuncelleme.isNotEmpty ? "Güncelleme: $notamGuncelleme" : "", style: const TextStyle(color: Colors.white24, fontSize: 10)),
                 const SizedBox(width: 15),
@@ -4488,7 +4493,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                       onPressed: () async {
                         setModalState(() => modalLoading = true);
                         await _sadeceNotamVerisiniCek();
-                        // Yeni NOTAM'lar gelince EN olanları collapsed yap
                         for (var n in ltaiNotamlari) {
                           String dil = _getDil(n['id'], n['icerik']);
                           if (dil == 'EN' || n['icerik'].toString().toUpperCase().contains('CRANE') || n['icerik'].toString().toUpperCase().contains('VINC')) {
@@ -4531,7 +4535,10 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                         // Üst Bar (Başlık ve İkonlar)
                         Padding(
                           padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-                          child: Row(
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
+                            crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
                               // Pin İkonu
                               GestureDetector(
@@ -4543,16 +4550,12 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                                 },
                                 child: Icon(isPinned ? Icons.push_pin : Icons.push_pin_outlined, size: 18, color: isPinned ? Colors.amber : Colors.white38),
                               ),
-                              const SizedBox(width: 8),
                               
                               // ID
                               Text(id, style: TextStyle(color: isPinned ? Colors.amber : Colors.orangeAccent, fontWeight: FontWeight.bold, fontSize: 13)),
-                              const SizedBox(width: 10),
 
                               // Tarih
                               Text("${n['baslangic']} - ${n['bitis']}", style: TextStyle(color: isPinned ? Colors.white54 : Colors.white38, fontSize: 11)),
-                              
-                              const Spacer(),
 
                               // Tag Badge (Değiştirilebilir)
                               PopupMenuButton<String>(
