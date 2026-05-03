@@ -21,6 +21,9 @@ class TrafikVerisi {
   final int vfrGiden; 
   
   TrafikVerisi(this.gelen, this.giden, {this.vfrGelen = 0, this.vfrGiden = 0});
+
+  Map<String, dynamic> toJson() => {'g': gelen, 'd': giden, 'vg': vfrGelen, 'vd': vfrGiden};
+  factory TrafikVerisi.fromJson(Map<String, dynamic> json) => TrafikVerisi(json['g'] ?? 0, json['d'] ?? 0, vfrGelen: json['vg'] ?? 0, vfrGiden: json['vd'] ?? 0);
   
   int get ifrToplam => gelen + giden;
   int get vfrToplam => vfrGelen + vfrGiden;
@@ -43,6 +46,10 @@ class HavaDurumu {
     this.gunesli = false,
     this.siddetliRuzgar = false,
   });
+
+  Map<String, dynamic> toJson() => {'r': rwy, 'y': yagmur, 'o': oraj, 'b': bulutlu, 'g': gunesli, 's': siddetliRuzgar};
+  factory HavaDurumu.fromJson(Map<String, dynamic> json) => HavaDurumu(rwy: json['r'] ?? "36", yagmur: json['y'] ?? false, oraj: json['o'] ?? false, bulutlu: json['b'] ?? false, gunesli: json['g'] ?? false, siddetliRuzgar: json['s'] ?? false);
+
 
   HavaDurumu copyWith({String? rwy, bool? yagmur, bool? oraj, bool? bulutlu, bool? gunesli, bool? siddetliRuzgar}) {
     return HavaDurumu(
@@ -69,6 +76,36 @@ class BordArsivi {
   final List<String> izinliler; 
   final String bizimleKal; 
   BordArsivi(this.tarih, this.tarihMetni, this.basliklar, this.satirlar, this.satirlarTrafik, this.satirlarGercekciTrafik, this.satirlarHava, this.istatistik, this.izinliler, this.bizimleKal);
+
+  Map<String, dynamic> toJson() {
+    return {
+      'tarih': tarih.millisecondsSinceEpoch,
+      'tarihMetni': tarihMetni,
+      'basliklar': basliklar,
+      'satirlar': satirlar,
+      'satirlarTrafik': satirlarTrafik.map((e) => e.toJson()).toList(),
+      'satirlarGercekciTrafik': satirlarGercekciTrafik.map((e) => e.toJson()).toList(),
+      'satirlarHava': satirlarHava.map((e) => e.toJson()).toList(),
+      'istatistik': istatistik,
+      'izinliler': izinliler,
+      'bizimleKal': bizimleKal,
+    };
+  }
+
+  factory BordArsivi.fromJson(Map<String, dynamic> json) {
+    return BordArsivi(
+      DateTime.fromMillisecondsSinceEpoch(json['tarih'] ?? 0),
+      json['tarihMetni'] ?? '',
+      List<String>.from(json['basliklar'] ?? []),
+      (json['satirlar'] as List?)?.map((e) => List<String>.from(e)).toList() ?? [],
+      (json['satirlarTrafik'] as List?)?.map((e) => TrafikVerisi.fromJson(e)).toList() ?? [],
+      (json['satirlarGercekciTrafik'] as List?)?.map((e) => TrafikVerisi.fromJson(e)).toList() ?? [],
+      (json['satirlarHava'] as List?)?.map((e) => HavaDurumu.fromJson(e)).toList() ?? [],
+      Map<String, Map<String, dynamic>>.from(json['istatistik']?.map((k, v) => MapEntry(k, Map<String, dynamic>.from(v))) ?? {}),
+      List<String>.from(json['izinliler'] ?? []),
+      json['bizimleKal'] ?? '',
+    );
+  }
 }
 
 class PersonelKarnesi {
@@ -581,6 +618,35 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     _loadPersonelPrefs(); // Kişi listesi hafızadan yükle
     _loadTakvimIzinler().then((_) => _takvimdenIzinUygula()); // Takvim izinlerini yükle ve uygula
     _hotoNotlariniDinle(); // Firebase'den anlık HOTO dinle
+    _arsivleriFirebaseDenYukle(); // Firebase'den kalıcı arşivleri çek (Son 12 Ay)
+  }
+
+  Future<void> _arsivleriFirebaseDenYukle() async {
+    try {
+      var snapshot = await _firestore.collection('arsiv_bordlari').get();
+      if (snapshot.docs.isNotEmpty) {
+        DateTime oneYearAgo = DateTime.now().subtract(const Duration(days: 365));
+        
+        if (!mounted) return;
+        setState(() {
+          tamArsiv.clear();
+          for (var doc in snapshot.docs) {
+            try {
+              var b = BordArsivi.fromJson(doc.data());
+              if (b.tarih.isAfter(oneYearAgo)) {
+                tamArsiv.add(b);
+              }
+            } catch(e) {
+              debugPrint("Arsiv satir donusum hatasi: $e");
+            }
+          }
+          tamArsiv.sort((a, b) => a.tarih.compareTo(b.tarih));
+        });
+        _istatistikleriYenidenHesapla(null);
+      }
+    } catch(e) {
+      debugPrint("Arsiv Firebase yukleme hatasi: $e");
+    }
   }
 
   void _tariheGoreVerileriGuncelle() {
@@ -2278,6 +2344,15 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     } else {
       // Her zaman ekle: mod/tarih kombinasyonu ilk kez oluşturuluyorsa UI çökmemeli
       tamArsiv.add(yeniBord);
+    }
+
+    // Firebase'e Kalıcı Olarak Kaydet (Sadece onaylı kayıtsa)
+    if (kaydet) {
+      try {
+        _firestore.collection('arsiv_bordlari').doc(recordDateStr).set(yeniBord.toJson(), cloud_firestore.SetOptions(merge: true));
+      } catch(e) {
+        debugPrint("Arsiv Firebase kaydetme hatasi: $e");
+      }
     }
   }
 
