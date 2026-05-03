@@ -2298,6 +2298,11 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     Map<String, Map<String, dynamic>> bugunIstat = {};
     bool herhangiManuelKarinca = _herhangiManuelKarinca;
     bool herhangiManuelEnseci  = _herhangiManuelEnseci;
+    int geceSlotIdx = List.generate(saatler.length, (i) => i).firstWhere((s) => saatler[s].split(' - ')[0] == '00:00' || saatler[s].split(' - ')[0] == '23:30', orElse: () => -1);
+    int araSlotIdx = List.generate(saatler.length, (i) => i).firstWhere((s) => saatler[s].split(' - ')[0] == '03:00' || saatler[s].split(' - ')[0] == '02:30', orElse: () => -1);
+    int sabahSlotIdx = List.generate(saatler.length, (i) => i).firstWhere((s) => saatler[s].split(' - ')[0] == '05:30', orElse: () => -1);
+    int sonSaatSlotIdx = List.generate(saatler.length, (i) => i).firstWhere((s) => saatler[s].split(' - ')[0] == '08:00', orElse: () => -1);
+
     for(var k in tumPersonelHavuzu) {
       int ts = turSayisi[k] ?? 0;
       bool isHamal  = isGunduzVardiyasi && ((gunlukDurum[k]?.contains('HAMAL') ?? false) || (gunlukDurum[k]?.contains('HAMAL_OTO') ?? false) || (ts > majT));
