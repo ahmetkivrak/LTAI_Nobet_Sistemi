@@ -4181,13 +4181,13 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
   List<Map<String, dynamic>> _ekstraPersonelListesi = [
     {'kod': 'CE', 'ad': 'CENGİZ SERT', 'grup': 'GÜNDÜZ', 'dongu': 'Hafta İçi'},
     {'kod': 'IO', 'ad': 'İSMAİL OKUDAN', 'grup': 'GÜNDÜZ', 'dongu': 'Hafta İçi'},
-    {'kod': 'MÖ', 'ad': 'A.MERVE ÖZBÖLER', 'grup': 'GÜNDÜZ', 'dongu': 'Hafta İçi'},
-    {'kod': 'KÖ', 'ad': 'KÜBRA KONAÇER', 'grup': 'GÜNDÜZ', 'dongu': 'Hafta İçi'},
+    {'kod': 'MO', 'ad': 'A.MERVE ÖZBÖLER', 'grup': 'GÜNDÜZ', 'dongu': 'Hafta İçi'},
+    {'kod': 'KK', 'ad': 'KÜBRA KONAÇER', 'grup': 'GÜNDÜZ', 'dongu': 'Hafta İçi'},
     {'kod': 'SÖ', 'ad': 'SENA ÖZTÜRK ERDEL', 'grup': 'GÜNDÜZ', 'dongu': 'Hafta İçi'},
-    {'kod': 'OĞ', 'ad': 'OĞUZHAN KABADAYI', 'grup': 'GÜNDÜZ', 'dongu': 'Hafta İçi'},
-    {'kod': 'SÇ', 'ad': 'SEBİHA ÇINAR', 'grup': 'EĞİTİM', 'dongu': 'Hafta İçi'},
-    {'kod': 'TK', 'ad': 'TEOMAN KÖSE', 'grup': 'EĞİTİM', 'dongu': '2-4-6'},
-    {'kod': 'NK', 'ad': 'NESLİHAN KÖSE', 'grup': 'EĞİTİM', 'dongu': '2-4-6'},
+    {'kod': 'OK', 'ad': 'OĞUZHAN KABADAYI', 'grup': 'GÜNDÜZ', 'dongu': 'Hafta İçi'},
+    {'kod': 'SC', 'ad': 'SEBİHA ÇINAR', 'grup': 'EĞİTİM', 'dongu': 'Hafta İçi'},
+    {'kod': 'TO', 'ad': 'TEOMAN KÖSE', 'grup': 'EĞİTİM', 'dongu': '2-4-6'},
+    {'kod': 'NU', 'ad': 'NESLİHAN KÖSE', 'grup': 'EĞİTİM', 'dongu': '2-4-6'},
   ];
 
   String _kisiAdiniGetir(String kod) {
