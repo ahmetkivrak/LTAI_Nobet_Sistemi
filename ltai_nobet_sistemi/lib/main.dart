@@ -2629,7 +2629,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
               
               Expanded(
                 child: ListView.builder(
-                  physics: getListItemCount() <= 14 ? const NeverScrollableScrollPhysics() : const AlwaysScrollableScrollPhysics(),
+                  physics: const BouncingScrollPhysics(),
                   itemCount: getListItemCount(),
                   itemBuilder: (context, i) {
                     int h = getActualHour(i); 
@@ -3601,7 +3601,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       }
 
       return AlertDialog(backgroundColor: const Color(0xFF1A1A1A), titlePadding: EdgeInsets.zero,
-        content: SizedBox(width: 500, height: 600, child: Column(children: [
+        content: SizedBox(width: 500, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
           Builder(builder: (context) {
             String p1G = gunduzKlasik.last.split(' - ').first;
             String p2G = gunduzAlengirli.last.split(' - ').first;
