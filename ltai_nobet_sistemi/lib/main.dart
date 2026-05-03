@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:intl/intl.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' as cloud_firestore;
 import 'firebase_options.dart';
@@ -2821,7 +2820,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     return DataTable(
         headingRowHeight: 40.0, 
         dataRowHeight: rowH,
-        headingRowColor: MaterialStateProperty.all(Colors.blueAccent.withOpacity(0.15)),
+        headingRowColor: WidgetStateProperty.all(Colors.blueAccent.withOpacity(0.15)),
         headingTextStyle: TextStyle(fontWeight: FontWeight.bold, color: Colors.lightBlueAccent, fontSize: fontS),
         dataTextStyle: TextStyle(color: Colors.white, fontSize: fontS),
         columnSpacing: 25,
@@ -3372,7 +3371,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
             width: constraints.maxWidth,
             child: FittedBox(fit: BoxFit.fitWidth, alignment: Alignment.topCenter,
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        DataTable(columnSpacing: 15, dataRowHeight: 65, headingRowHeight: 36, border: TableBorder.all(color: borderColor, width: 1), headingRowColor: MaterialStateProperty.all(Colors.black),
+        DataTable(columnSpacing: 15, dataRowHeight: 65, headingRowHeight: 36, border: TableBorder.all(color: borderColor, width: 1), headingRowColor: WidgetStateProperty.all(Colors.black),
           columns: [ 
             const DataColumn(label: SizedBox(width: 40, child: Center(child: Text("")))),
             DataColumn(label: Text(_aktifTarihStr, style: TextStyle(color: themeColor, fontWeight: FontWeight.bold, fontSize: 12))), 
@@ -4060,48 +4059,49 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     }
   }
 
-  // ── Rozet Kalıcılığı (SharedPreferences) ──
+  // ── Rozet Kalıcılığı (Firebase Firestore) ──
   Future<void> _loadNotamPrefs() async {
-    final prefs = await SharedPreferences.getInstance();
-    // Özel etiketleri yükle
-    String? tagsJson = prefs.getString('customNotamTags');
-    if (tagsJson != null) {
-      try {
-        Map<String, dynamic> decoded = jsonDecode(tagsJson);
-        setState(() {
-          _customNotamTags = decoded.map((k, v) => MapEntry(k, v.toString()));
-        });
-      } catch (e) { debugPrint("Notam Tags parse: $e"); }
-    }
-    // Özel rozetleri yükle (built-in olmayanlar)
-    String? customTagsJson = prefs.getString('customAllTags');
-    if (customTagsJson != null) {
-      try {
-        Map<String, dynamic> decoded = jsonDecode(customTagsJson);
-        setState(() {
-          for (var entry in decoded.entries) {
-            if (!_builtInTagNames.contains(entry.key)) {
-              List<dynamic> val = entry.value;
-              _allTags[entry.key] = [Color(val[0]), val[1]];
+    try {
+      var snapshot = await cloud_firestore.FirebaseFirestore.instance.collection('ayarlar').doc('notam_tags_$_aktifEkip').get();
+      if (snapshot.exists) {
+        Map<String, dynamic> data = snapshot.data()!;
+        // Özel etiketleri yükle
+        if (data.containsKey('customNotamTags')) {
+          Map<String, dynamic> decoded = Map<String, dynamic>.from(data['customNotamTags']);
+          setState(() {
+            _customNotamTags = decoded.map((k, v) => MapEntry(k, v.toString()));
+          });
+        }
+        // Özel rozetleri yükle (built-in olmayanlar)
+        if (data.containsKey('customAllTags')) {
+          Map<String, dynamic> decoded = Map<String, dynamic>.from(data['customAllTags']);
+          setState(() {
+            for (var entry in decoded.entries) {
+              if (!_builtInTagNames.contains(entry.key)) {
+                List<dynamic> val = List<dynamic>.from(entry.value);
+                _allTags[entry.key] = [Color(val[0]), val[1]];
+              }
             }
-          }
-        });
-      } catch (e) { debugPrint("Custom All Tags parse: $e"); }
-    }
+          });
+        }
+      }
+    } catch (e) { debugPrint("Notam Tags Firebase okuma: $e"); }
   }
 
   Future<void> _saveNotamPrefs() async {
-    final prefs = await SharedPreferences.getInstance();
-    // Özel etiketleri kaydet
-    await prefs.setString('customNotamTags', jsonEncode(_customNotamTags));
-    // Özel rozetleri kaydet (built-in olmayanları)
-    Map<String, List<dynamic>> customOnly = {};
-    _allTags.forEach((k, v) {
-      if (!_builtInTagNames.contains(k)) {
-        customOnly[k] = [v[0].value, v[1]]; // Color.value → int
-      }
-    });
-    await prefs.setString('customAllTags', jsonEncode(customOnly));
+    try {
+      // Özel rozetleri kaydet (built-in olmayanları)
+      Map<String, List<dynamic>> customOnly = {};
+      _allTags.forEach((k, v) {
+        if (!_builtInTagNames.contains(k)) {
+          customOnly[k] = [(v[0] as Color).value, v[1]];
+        }
+      });
+      await cloud_firestore.FirebaseFirestore.instance.collection('ayarlar').doc('notam_tags_$_aktifEkip').set({
+        'customNotamTags': _customNotamTags,
+        'customAllTags': customOnly,
+      }, cloud_firestore.SetOptions(merge: true));
+    } catch (e) { debugPrint("Notam Tags Firebase yazma: $e"); }
   }
   
   // Öntanımlı Rozetler (Kalıcı ve dinamik olması için sınıf seviyesine taşındı)
@@ -4134,27 +4134,28 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
   String _tarihKey(DateTime d) => "${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year}";
 
   Future<void> _loadTakvimIzinler() async {
-    final prefs = await SharedPreferences.getInstance();
-    String? raw = prefs.getString('takvimIzin_$_aktifEkip');
-    if (raw != null) {
-      try {
-        Map<String, dynamic> parsed = json.decode(raw);
+    try {
+      var snapshot = await cloud_firestore.FirebaseFirestore.instance.collection('ayarlar').doc('takvim_izin_$_aktifEkip').get();
+      if (snapshot.exists) {
+        Map<String, dynamic> parsed = snapshot.data()!;
         _takvimIzinler = {};
         parsed.forEach((k, v) {
           if (v is Map) {
             _takvimIzinler[k] = Map<String, String>.from(v);
           } else if (v is List) {
-            // Eski format uyumlulugu (List -> hepsini 'I' yap)
             _takvimIzinler[k] = {for (var name in v) name as String: 'Y'};
           }
         });
-      } catch (_) {}
-    }
+      }
+    } catch (e) { debugPrint("Takvim izin Firebase okuma: $e"); }
   }
 
   Future<void> _saveTakvimIzinler() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('takvimIzin_$_aktifEkip', json.encode(_takvimIzinler));
+    try {
+      await cloud_firestore.FirebaseFirestore.instance.collection('ayarlar').doc('takvim_izin_$_aktifEkip').set(
+        _takvimIzinler, cloud_firestore.SetOptions(merge: false)
+      );
+    } catch (e) { debugPrint("Takvim izin Firebase yazma: $e"); }
   }
 
   /// Seçili tarihteki takvim izinlilerini borda uygula
