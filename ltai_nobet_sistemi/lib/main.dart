@@ -153,7 +153,7 @@ class EkipVerisi {
   /// Kaydedilmiş şifreleri yükle
   static Future<void> sifreleriYukle() async {
     try {
-      var snapshot = await FirebaseFirestore.instance.collection('ayarlar').doc('sifreler').get();
+      var snapshot = await cloud_firestore.FirebaseFirestore.instance.collection('ayarlar').doc('sifreler').get();
       if (snapshot.exists) {
         Map<String, dynamic> data = snapshot.data()!;
         for (var ekip in ['A', 'B', 'C', 'D', 'E']) {
@@ -171,9 +171,9 @@ class EkipVerisi {
     if (yeniSifre.length < 4) return false;
     sifreler[ekip] = yeniSifre;
     try {
-      await FirebaseFirestore.instance.collection('ayarlar').doc('sifreler').set({
+      await cloud_firestore.FirebaseFirestore.instance.collection('ayarlar').doc('sifreler').set({
         ekip: yeniSifre
-      }, SetOptions(merge: true));
+      }, cloud_firestore.SetOptions(merge: true));
     } catch(e) {
       debugPrint("Sifre Firebase yazma hatasi: $e");
     }
