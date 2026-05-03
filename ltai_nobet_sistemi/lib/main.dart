@@ -3362,7 +3362,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     return Column(
       mainAxisSize: MainAxisSize.min, 
       children: [
-      Expanded(child: InteractiveViewer(minScale: 1.0, maxScale: 8.0, child: SingleChildScrollView(scrollDirection: Axis.vertical, child: FittedBox(fit: BoxFit.fitWidth, alignment: Alignment.topCenter, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Expanded(child: InteractiveViewer(minScale: 0.3, maxScale: 8.0, child: SingleChildScrollView(scrollDirection: Axis.vertical, child: FittedBox(fit: BoxFit.fitWidth, alignment: Alignment.topCenter, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         DataTable(columnSpacing: 15, dataRowHeight: 65, headingRowHeight: 36, border: TableBorder.all(color: borderColor, width: 1), headingRowColor: MaterialStateProperty.all(Colors.black),
           columns: [ 
             const DataColumn(label: SizedBox(width: 40, child: Center(child: Text("")))),
@@ -3969,7 +3969,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
             ),
             // Şifre değiştirme butonu Arşiv ekranına taşındı.
           ])),
-        ])),
+        ]))),
         actions: [
           IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close, color: Colors.white38, size: 20)),
         ],
