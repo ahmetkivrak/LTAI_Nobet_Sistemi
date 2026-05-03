@@ -642,7 +642,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
           }
           tamArsiv.sort((a, b) => a.tarih.compareTo(b.tarih));
         });
-        _istatistikleriYenidenHesapla(null);
+        _gruplariGuncelle(arsiveKaydet: false, pinleriTemizle: false);
       }
     } catch(e) {
       debugPrint("Arsiv Firebase yukleme hatasi: $e");
@@ -2302,6 +2302,12 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       int ts = turSayisi[k] ?? 0;
       bool isHamal  = isGunduzVardiyasi && ((gunlukDurum[k]?.contains('HAMAL') ?? false) || (gunlukDurum[k]?.contains('HAMAL_OTO') ?? false) || (ts > majT));
       bool isEnseci = isGunduzVardiyasi && ((gunlukDurum[k]?.contains('ENSECİ') ?? false) || (gunlukDurum[k]?.contains('ENSECİ_OTO') ?? false) || (ts < majT && ts > 0));
+      bool is1203 = !isGunduzVardiyasi && geceSlotIdx != -1 && gunlukPlan[geceSlotIdx]?.containsValue(k) == true;
+      bool isAra = !isGunduzVardiyasi && araSlotIdx != -1 && gunlukPlan[araSlotIdx]?.containsValue(k) == true;
+      bool isSabah = !isGunduzVardiyasi && sabahSlotIdx != -1 && gunlukPlan[sabahSlotIdx]?.containsValue(k) == true;
+      bool isSonSaat = !isGunduzVardiyasi && sonSaatSlotIdx != -1 && gunlukPlan[sonSaatSlotIdx]?.containsValue(k) == true;
+      bool isOffGece = !isGunduzVardiyasi && !is1203 && !isAra && !isSabah && !isSonSaat && ts > 0;
+
       bugunIstat[k] = { 
         'DEL': delSayisi[k] ?? 0, 'TWR': twrSayisi[k] ?? 0, 'GND': gndSayisi[k] ?? 0, 'SUP': supSayisi[k] ?? 0, 
         'TUR': ts, 
@@ -2309,11 +2315,11 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
         'H_SAYI': ts > majT ? (ts - majT) : 0, 'E_SAYI': ts < majT && ts > 0 ? (majT - ts) : 0,
         'ILK_S': ilkSecilenler.contains(k),
         'SON_S': sonSecilenler.contains(k),
-        '1203_S': gece1203Secilenler.contains(k),
-        'ARA_S': geceAraSecilenler.contains(k),
-        '0508_S': gece0508Secilenler.contains(k),
-        '0809_S': gece0809Secilenler.contains(k),
-        'OFF_S': geceOffSecilenler.contains(k)
+        '1203_S': is1203,
+        'ARA_S': isAra,
+        '0508_S': isSabah,
+        '0809_S': isSonSaat,
+        'OFF_S': isOffGece
       };
     }
 
