@@ -2783,8 +2783,8 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                 Expanded(
                   child: TabBarView(
                     children: [
-                      InteractiveViewer(minScale: 1.0, maxScale: 8.0, child: SingleChildScrollView(scrollDirection: Axis.vertical, child: FittedBox(fit: BoxFit.fitWidth, alignment: Alignment.topCenter, child: _buildAirgramTable(true, lokalAirgram)))),
-                      InteractiveViewer(minScale: 1.0, maxScale: 8.0, child: SingleChildScrollView(scrollDirection: Axis.vertical, child: FittedBox(fit: BoxFit.fitWidth, alignment: Alignment.topCenter, child: _buildAirgramTable(false, lokalAirgram)))),
+                      LayoutBuilder(builder: (context, constraints) => InteractiveViewer(minScale: 0.3, maxScale: 8.0, constrained: false, boundaryMargin: const EdgeInsets.all(double.infinity), child: SizedBox(width: constraints.maxWidth, child: FittedBox(fit: BoxFit.fitWidth, alignment: Alignment.topCenter, child: _buildAirgramTable(true, lokalAirgram))))),
+                      LayoutBuilder(builder: (context, constraints) => InteractiveViewer(minScale: 0.3, maxScale: 8.0, constrained: false, boundaryMargin: const EdgeInsets.all(double.infinity), child: SizedBox(width: constraints.maxWidth, child: FittedBox(fit: BoxFit.fitWidth, alignment: Alignment.topCenter, child: _buildAirgramTable(false, lokalAirgram))))),
                     ],
                   ),
                 ),
@@ -2923,7 +2923,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
               iconColor: Colors.orangeAccent, collapsedIconColor: Colors.white54, title: Text("Tarih: ${arsiv.tarihMetni}", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               children: [ Padding(padding: const EdgeInsets.all(12.0), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   const SizedBox(height: 8),
-                  InteractiveViewer(minScale: 1.0, maxScale: 8.0, child: SingleChildScrollView(scrollDirection: Axis.vertical, child: FittedBox(fit: BoxFit.fitWidth, alignment: Alignment.topCenter, child: DataTable(
+                  LayoutBuilder(builder: (context, constraints) => InteractiveViewer(minScale: 0.3, maxScale: 8.0, constrained: false, boundaryMargin: const EdgeInsets.all(double.infinity), child: SizedBox(width: constraints.maxWidth, child: FittedBox(fit: BoxFit.fitWidth, alignment: Alignment.topCenter, child: DataTable(
                     columnSpacing: 15, headingRowHeight: 36, dataRowHeight: 56, border: TableBorder.all(color: Colors.white12),
                     columns: [ 
                       const DataColumn(label: SizedBox(width: 40, child: Center(child: Text("")))),
@@ -2952,7 +2952,8 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                       }
                       return DataRow(cells: rCells);
                     }).toList(),
-                  )))),
+                  ))))),
+
                   Padding(padding: const EdgeInsets.only(top: 12.0), child: Row(children: [
                     Container(width: ((arsiv.basliklar.length + 2) * 90.0) * (2/3), padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.redAccent.withOpacity(0.1), border: Border.all(color: Colors.redAccent.withOpacity(0.5)), borderRadius: BorderRadius.circular(8)), child: Text("❌ İZİNLİLER: ${arsiv.izinliler.isEmpty ? 'Yok' : arsiv.izinliler.join(', ')}", style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.bold, fontSize: 11), overflow: TextOverflow.ellipsis)),
                     const SizedBox(width: 10),
@@ -2962,7 +2963,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
             ));
         });
       } else {
-        contentWidget = gosterilecek.isEmpty ? const Center(child: Text("Kayıt yok.", style: TextStyle(color: Colors.white54))) : InteractiveViewer(minScale: 1.0, maxScale: 8.0, child: SingleChildScrollView(scrollDirection: Axis.vertical, child: FittedBox(fit: BoxFit.fitWidth, alignment: Alignment.topCenter, child: DataTable(
+        contentWidget = gosterilecek.isEmpty ? const Center(child: Text("Kayıt yok.", style: TextStyle(color: Colors.white54))) : LayoutBuilder(builder: (context, constraints) => InteractiveViewer(minScale: 0.3, maxScale: 8.0, constrained: false, boundaryMargin: const EdgeInsets.all(double.infinity), child: SizedBox(width: constraints.maxWidth, child: FittedBox(fit: BoxFit.fitWidth, alignment: Alignment.topCenter, child: DataTable(
             columnSpacing: 10, headingRowHeight: 40, dataRowHeight: 45, border: TableBorder.all(color: Colors.white12),
             columns: [ 
               const DataColumn(label: SizedBox(width: 60, child: Text(""))), 
@@ -3005,7 +3006,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                  DataCell(Text("${e.value['OFF_S'] > 0 ? e.value['OFF_S'] : '-'}", style: const TextStyle(color: Colors.redAccent, fontSize: 11, fontWeight: FontWeight.bold))), 
               ]
             ])).toList(),
-        ))));
+        ))))));
       }
 
       return AlertDialog(
