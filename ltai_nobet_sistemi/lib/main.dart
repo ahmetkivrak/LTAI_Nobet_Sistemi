@@ -2311,7 +2311,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       bool isAra = !isGunduzVardiyasi && araSlotIdx != -1 && gunlukPlan[araSlotIdx]?.containsValue(k) == true;
       bool isSabah = !isGunduzVardiyasi && sabahSlotIdx != -1 && gunlukPlan[sabahSlotIdx]?.containsValue(k) == true;
       bool isSonSaat = !isGunduzVardiyasi && sonSaatSlotIdx != -1 && gunlukPlan[sonSaatSlotIdx]?.containsValue(k) == true;
-      bool isOffGece = !isGunduzVardiyasi && !is1203 && !isAra && !isSabah && !isSonSaat && ts > 0;
+      bool isOffGece = !isGunduzVardiyasi && !is1203 && !isAra && !isSabah && !isSonSaat && !(gunlukDurum[k]?.contains('OFF') ?? false) && !(gunlukDurum[k]?.contains('OJTI') ?? false);
 
       bugunIstat[k] = { 
         'DEL': delSayisi[k] ?? 0, 'TWR': twrSayisi[k] ?? 0, 'GND': gndSayisi[k] ?? 0, 'SUP': supSayisi[k] ?? 0, 
