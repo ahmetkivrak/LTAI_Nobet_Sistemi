@@ -2783,8 +2783,8 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                 Expanded(
                   child: TabBarView(
                     children: [
-                      LayoutBuilder(builder: (context, constraints) => InteractiveViewer(minScale: 0.3, maxScale: 8.0, constrained: false, boundaryMargin: const EdgeInsets.all(double.infinity), child: SizedBox(width: constraints.maxWidth, child: FittedBox(fit: BoxFit.fitWidth, alignment: Alignment.topCenter, child: _buildAirgramTable(true, lokalAirgram))))),
-                      LayoutBuilder(builder: (context, constraints) => InteractiveViewer(minScale: 0.3, maxScale: 8.0, constrained: false, boundaryMargin: const EdgeInsets.all(double.infinity), child: SizedBox(width: constraints.maxWidth, child: FittedBox(fit: BoxFit.fitWidth, alignment: Alignment.topCenter, child: _buildAirgramTable(false, lokalAirgram))))),
+                      InteractiveViewer(minScale: 0.3, maxScale: 8.0, child: FittedBox(fit: BoxFit.contain, alignment: Alignment.topCenter, child: _buildAirgramTable(true, lokalAirgram))),
+                      InteractiveViewer(minScale: 0.3, maxScale: 8.0, child: FittedBox(fit: BoxFit.contain, alignment: Alignment.topCenter, child: _buildAirgramTable(false, lokalAirgram))),
                     ],
                   ),
                 ),
@@ -3612,7 +3612,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
       }
 
       return AlertDialog(backgroundColor: const Color(0xFF1A1A1A), titlePadding: EdgeInsets.zero,
-        content: SizedBox(width: 500, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+        content: SizedBox(width: 500, height: MediaQuery.of(context).size.height * 0.7, child: Column(children: [
           Builder(builder: (context) {
             String p1G = gunduzKlasik.last.split(' - ').first;
             String p2G = gunduzAlengirli.last.split(' - ').first;
@@ -3980,7 +3980,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
             ),
             // Şifre değiştirme butonu Arşiv ekranına taşındı.
           ])),
-        ]))),
+        ])),
         actions: [
           IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close, color: Colors.white38, size: 20)),
         ],
