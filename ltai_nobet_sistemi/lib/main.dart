@@ -5165,14 +5165,10 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
           gelenNotlar.sort((a, b) => (b['timestamp'] ?? 0).compareTo(a['timestamp'] ?? 0));
           bizimNotlar.sort((a, b) => (b['timestamp'] ?? 0).compareTo(a['timestamp'] ?? 0));
 
-          Map<String, Color> katRenk = {'OPS': Colors.redAccent, 'TRF': Colors.amber, 'GNL': Colors.greenAccent};
-          Map<String, String> katAd = {'OPS': '🔴 Operasyonel', 'TRF': '🟡 Trafik', 'GNL': '🟢 Genel'};
-
           Widget notKarti(Map<String, dynamic> not, bool bizim) {
-            String kat = not['kategori'] ?? 'GNL';
-            Color renk = katRenk[kat] ?? Colors.white54;
             bool okundu = not['okunduMu'] ?? false;
             String ekip = not['ekip'] ?? '?';
+            Color ekipRengi = EkipVerisi.renkler[ekip] ?? Colors.white54;
             String vardiya = not['vardiya'] ?? '';
             String tarih = not['tarih'] ?? '';
             String metin = not['metin'] ?? '';
@@ -5187,20 +5183,20 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
               margin: const EdgeInsets.only(bottom: 8),
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: okundu || bizim ? Colors.white.withOpacity(0.03) : renk.withOpacity(0.08),
+                color: okundu || bizim ? Colors.white.withOpacity(0.03) : ekipRengi.withOpacity(0.08),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: okundu || bizim ? Colors.white12 : renk.withOpacity(0.4)),
+                border: Border.all(color: okundu || bizim ? Colors.white12 : ekipRengi.withOpacity(0.4)),
               ),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(children: [
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: (EkipVerisi.renkler[ekip] ?? Colors.grey).withOpacity(0.3),
+                      color: ekipRengi.withOpacity(0.3),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text('$ekip Ekibi', style: TextStyle(
-                      color: EkipVerisi.renkler[ekip], fontSize: 10, fontWeight: FontWeight.bold)),
+                      color: ekipRengi, fontSize: 10, fontWeight: FontWeight.bold)),
                   ),
                   const SizedBox(width: 6),
                   Text('$vardiya · $tarih', style: TextStyle(color: Colors.white38, fontSize: 9)),
@@ -5235,10 +5231,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                       child: const Icon(Icons.delete_outline, size: 16, color: Colors.redAccent),
                     ),
                   ],
-                ]),
-                const SizedBox(height: 4),
-                Row(children: [
-                  Text(katAd[kat] ?? kat, style: TextStyle(color: renk, fontSize: 9, fontWeight: FontWeight.bold)),
                 ]),
                 const SizedBox(height: 6),
                 Text(metin, style: const TextStyle(color: Colors.white, fontSize: 12)),
