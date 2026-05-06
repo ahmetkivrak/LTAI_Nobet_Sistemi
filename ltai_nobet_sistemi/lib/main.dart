@@ -3918,8 +3918,8 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                         )
                       ),
                       ],
-                    ]
-                  )
+                    ),
+                  ),
                 ),
                 const SizedBox(width: 6),
                 Expanded(
@@ -3954,9 +3954,9 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                           child: Text("🌙 $n2Txt", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 1))
                         )
                       ),
-                    ]
-                  )
-                ),
+                      ],
+                    ),
+                  ),
               ],
             );
           }),
