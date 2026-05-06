@@ -3259,8 +3259,10 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
           IconButton(icon: const Icon(Icons.calendar_month, color: Colors.cyanAccent), tooltip: "Nöbet Takvimi", onPressed: _nobetTakviminiAc),
           if (_aktifEkip != 'GÜNDÜZ' && _aktifEkip != 'EĞİTİM')
             IconButton(icon: const Icon(Icons.settings, color: Colors.orangeAccent), tooltip: "Ayarlar ve Bord Planlama", onPressed: () => _checkChefPassword(_kadroSecimEkraniAc))
-          else
+          else ...[
+            IconButton(icon: const Icon(Icons.lock_outline, color: Colors.amber), tooltip: "Şifre Değiştir", onPressed: _sifreDegistirDialog),
             IconButton(icon: const Icon(Icons.manage_accounts, color: Colors.tealAccent), tooltip: "Personel Yönetimi", onPressed: _ekstraPersonelYonetimiAc),
+          ],
           IconButton(icon: const Icon(Icons.logout, color: Colors.redAccent), tooltip: "Çıkış", onPressed: () {
             Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const EkipSecimSayfasi()));
           }),
@@ -3915,29 +3917,6 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                           child: Text("☀️ $p2G", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 1))
                         )
                       ),
-                      if (_isChef) ...[
-                        const SizedBox(height: 6),
-                        Row(children: [
-                          Expanded(child: SizedBox(
-                            height: 35,
-                            child: OutlinedButton.icon(
-                              style: OutlinedButton.styleFrom(foregroundColor: Colors.cyanAccent, side: const BorderSide(color: Colors.cyanAccent), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6))),
-                              icon: const Icon(Icons.edit_note, size: 16),
-                              label: const Text("SEKTÖR İSİMLERİ", style: TextStyle(fontSize: 10)),
-                              onPressed: () => _sektorDuzenleDialog()
-                            )
-                          )),
-                          const SizedBox(width: 6),
-                          Expanded(child: SizedBox(
-                            height: 35,
-                            child: OutlinedButton.icon(
-                              style: OutlinedButton.styleFrom(foregroundColor: Colors.orangeAccent, side: const BorderSide(color: Colors.orangeAccent), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6))),
-                              icon: const Icon(Icons.lock, size: 16),
-                              label: const Text("ŞİFRE YÖNETİMİ", style: TextStyle(fontSize: 10)),
-                              onPressed: () => _sifreYonetimiDialog()
-                            )
-                          )),
-                        ]),
                       ],
                     ]
                   )
@@ -4502,7 +4481,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     showDialog(context: context, builder: (c1) => StatefulBuilder(builder: (context, s1) {
       return AlertDialog(
         backgroundColor: const Color(0xFF1E1E1E),
-        title: Text('Personel Yönetimi ($_aktifEkip)', style: const TextStyle(color: Colors.white)),
+        title: null,
         content: SizedBox(
           width: 600, height: 500,
           child: Column(children: [
@@ -4554,6 +4533,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                     decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(6)),
                     child: ListTile(
                       onTap: () {
+                         TextEditingController editKodC = TextEditingController(text: p['kod']);
                          TextEditingController editAdC = TextEditingController(text: p['ad']);
                          String editDongu = p['dongu'];
                          showDialog(context: context, builder: (cEdit) => StatefulBuilder(builder: (cEdit, sEdit) {
@@ -4561,6 +4541,8 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                              backgroundColor: const Color(0xFF222222),
                              title: Text('${p['kod']} - Düzenle', style: const TextStyle(color: Colors.white, fontSize: 16)),
                              content: Column(mainAxisSize: MainAxisSize.min, children: [
+                               TextField(controller: editKodC, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Kısa Kod', labelStyle: TextStyle(color: Colors.white54))),
+                               const SizedBox(height: 12),
                                TextField(controller: editAdC, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Ad Soyad', labelStyle: TextStyle(color: Colors.white54))),
                                const SizedBox(height: 12),
                                DropdownButtonFormField<String>(
@@ -4573,15 +4555,16 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                                ),
                              ]),
                              actions: [
-                               TextButton(onPressed: () => Navigator.pop(cEdit), child: const Text('İPTAL')),
-                               ElevatedButton(onPressed: () {
+                               IconButton(onPressed: () => Navigator.pop(cEdit), icon: const Icon(Icons.close, color: Colors.white38)),
+                               IconButton(onPressed: () {
                                  s1(() {
+                                    p['kod'] = editKodC.text.trim().toUpperCase();
                                     p['ad'] = editAdC.text.trim().toUpperCase();
                                     p['dongu'] = editDongu;
                                     _saveEkstraPersonel();
                                  });
                                  Navigator.pop(cEdit);
-                               }, child: const Text('GÜNCELLE')),
+                               }, icon: const Icon(Icons.save, color: Colors.greenAccent)),
                              ],
                            );
                          }));
@@ -4590,9 +4573,14 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                       title: Text(p['ad'] ?? '', style: const TextStyle(color: Colors.white, fontSize: 14)),
                       subtitle: Text('Döngü: ${p['dongu']}', style: const TextStyle(color: Colors.white54, fontSize: 12)),
                       trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                        if (i > 0) IconButton(icon: const Icon(Icons.arrow_upward, size: 18, color: Colors.white38), onPressed: () {
+                        IconButton(icon: const Icon(Icons.delete, color: Colors.redAccent, size: 20), onPressed: () {
                           s1(() {
-                            // originalIdx ve bir öncekini bul
+                            _ekstraPersonelListesi.removeAt(originalIdx);
+                            _saveEkstraPersonel();
+                          });
+                        }),
+                        if (i > 0) IconButton(icon: const Icon(Icons.arrow_upward, size: 20, color: Colors.white38), onPressed: () {
+                          s1(() {
                             var prevItem = filtered[i-1];
                             int prevOriginalIdx = _ekstraPersonelListesi.indexOf(prevItem);
                             var item = _ekstraPersonelListesi.removeAt(originalIdx);
@@ -4600,18 +4588,12 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                             _saveEkstraPersonel();
                           });
                         }),
-                        if (i < filtered.length - 1) IconButton(icon: const Icon(Icons.arrow_downward, size: 18, color: Colors.white38), onPressed: () {
+                        if (i < filtered.length - 1) IconButton(icon: const Icon(Icons.arrow_downward, size: 20, color: Colors.white38), onPressed: () {
                           s1(() {
                             var nextItem = filtered[i+1];
                             int nextOriginalIdx = _ekstraPersonelListesi.indexOf(nextItem);
                             var item = _ekstraPersonelListesi.removeAt(originalIdx);
                             _ekstraPersonelListesi.insert(nextOriginalIdx, item);
-                            _saveEkstraPersonel();
-                          });
-                        }),
-                        IconButton(icon: const Icon(Icons.delete, color: Colors.redAccent), onPressed: () {
-                          s1(() {
-                            _ekstraPersonelListesi.removeAt(originalIdx);
                             _saveEkstraPersonel();
                           });
                         }),
