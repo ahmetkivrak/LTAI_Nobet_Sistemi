@@ -3932,7 +3932,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                             height: 35,
                             child: OutlinedButton.icon(
                               style: OutlinedButton.styleFrom(foregroundColor: Colors.orangeAccent, side: const BorderSide(color: Colors.orangeAccent), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6))),
-                              icon: const Icon(Icons.password, size: 16),
+                              icon: const Icon(Icons.lock, size: 16),
                               label: const Text("ŞİFRE YÖNETİMİ", style: TextStyle(fontSize: 10)),
                               onPressed: () => _sifreYonetimiDialog()
                             )
@@ -4540,30 +4540,87 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
             ),
             const SizedBox(height: 16),
             // Liste
-            Expanded(child: ListView.builder(
-              itemCount: _ekstraPersonelListesi.length,
-              itemBuilder: (ctx, i) {
-                var p = _ekstraPersonelListesi[i];
-                // Sadece aktif ekibin (GÜNDÜZ veya EĞİTİM) personelini listele
-                if (p['grup'] != _aktifEkip) return const SizedBox.shrink();
-                
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(6)),
-                  child: ListTile(
-                    leading: CircleAvatar(backgroundColor: EkipVerisi.renkler[p['grup']]!.withOpacity(0.3), child: Text(p['kod'] ?? '', style: const TextStyle(color: Colors.white, fontSize: 12))),
-                    title: Text(p['ad'] ?? '', style: const TextStyle(color: Colors.white, fontSize: 14)),
-                    subtitle: Text('Döngü: ${p['dongu']}', style: const TextStyle(color: Colors.white54, fontSize: 12)),
-                    trailing: IconButton(icon: const Icon(Icons.delete, color: Colors.redAccent), onPressed: () {
-                      s1(() {
-                        _ekstraPersonelListesi.removeAt(i);
-                        _saveEkstraPersonel();
-                      });
-                    }),
-                  ),
-                );
-              },
-            )),
+            Expanded(child: StatefulBuilder(builder: (context, sList) {
+              var filtered = _ekstraPersonelListesi.where((p) => p['grup'] == _aktifEkip).toList();
+              return ListView.builder(
+                itemCount: filtered.length,
+                itemBuilder: (ctx, i) {
+                  var p = filtered[i];
+                  // Asıl listedeki index'i bul
+                  int originalIdx = _ekstraPersonelListesi.indexOf(p);
+
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(6)),
+                    child: ListTile(
+                      onTap: () {
+                         TextEditingController editAdC = TextEditingController(text: p['ad']);
+                         String editDongu = p['dongu'];
+                         showDialog(context: context, builder: (cEdit) => StatefulBuilder(builder: (cEdit, sEdit) {
+                           return AlertDialog(
+                             backgroundColor: const Color(0xFF222222),
+                             title: Text('${p['kod']} - Düzenle', style: const TextStyle(color: Colors.white, fontSize: 16)),
+                             content: Column(mainAxisSize: MainAxisSize.min, children: [
+                               TextField(controller: editAdC, style: const TextStyle(color: Colors.white), decoration: const InputDecoration(labelText: 'Ad Soyad', labelStyle: TextStyle(color: Colors.white54))),
+                               const SizedBox(height: 12),
+                               DropdownButtonFormField<String>(
+                                 value: editDongu,
+                                 dropdownColor: Colors.black87,
+                                 style: const TextStyle(color: Colors.white),
+                                 items: ['Hafta İçi', '2-4-6', '2 Çalış 2 Off', 'Her Gün'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                                 onChanged: (v) => sEdit(() => editDongu = v!),
+                                 decoration: const InputDecoration(labelText: 'Çalışma Döngüsü', labelStyle: TextStyle(color: Colors.white54)),
+                               ),
+                             ]),
+                             actions: [
+                               TextButton(onPressed: () => Navigator.pop(cEdit), child: const Text('İPTAL')),
+                               ElevatedButton(onPressed: () {
+                                 s1(() {
+                                    p['ad'] = editAdC.text.trim().toUpperCase();
+                                    p['dongu'] = editDongu;
+                                    _saveEkstraPersonel();
+                                 });
+                                 Navigator.pop(cEdit);
+                               }, child: const Text('GÜNCELLE')),
+                             ],
+                           );
+                         }));
+                      },
+                      leading: CircleAvatar(backgroundColor: EkipVerisi.renkler[p['grup']]!.withOpacity(0.3), child: Text(p['kod'] ?? '', style: const TextStyle(color: Colors.white, fontSize: 12))),
+                      title: Text(p['ad'] ?? '', style: const TextStyle(color: Colors.white, fontSize: 14)),
+                      subtitle: Text('Döngü: ${p['dongu']}', style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                      trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                        if (i > 0) IconButton(icon: const Icon(Icons.arrow_upward, size: 18, color: Colors.white38), onPressed: () {
+                          s1(() {
+                            // originalIdx ve bir öncekini bul
+                            var prevItem = filtered[i-1];
+                            int prevOriginalIdx = _ekstraPersonelListesi.indexOf(prevItem);
+                            var item = _ekstraPersonelListesi.removeAt(originalIdx);
+                            _ekstraPersonelListesi.insert(prevOriginalIdx, item);
+                            _saveEkstraPersonel();
+                          });
+                        }),
+                        if (i < filtered.length - 1) IconButton(icon: const Icon(Icons.arrow_downward, size: 18, color: Colors.white38), onPressed: () {
+                          s1(() {
+                            var nextItem = filtered[i+1];
+                            int nextOriginalIdx = _ekstraPersonelListesi.indexOf(nextItem);
+                            var item = _ekstraPersonelListesi.removeAt(originalIdx);
+                            _ekstraPersonelListesi.insert(nextOriginalIdx, item);
+                            _saveEkstraPersonel();
+                          });
+                        }),
+                        IconButton(icon: const Icon(Icons.delete, color: Colors.redAccent), onPressed: () {
+                          s1(() {
+                            _ekstraPersonelListesi.removeAt(originalIdx);
+                            _saveEkstraPersonel();
+                          });
+                        }),
+                      ]),
+                    ),
+                  );
+                },
+              );
+            })),
           ]),
         ),
         actions: [
@@ -4731,10 +4788,12 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                   TextButton(onPressed: () {
                     // ── YOKLAMA RAPORU (UNIFIED) ──
                     List<Map<String, String>> fullYoklama = [];
-                    // 1. Ekip
-                    for (var k in tumPersonelHavuzu) {
+                    // 1. Nöbetçi Ekip (A, B, C, D veya E)
+                    String dutyTeam = isGunduzVardiyasi ? EkipVerisi.gunduzEkibi(gun) : EkipVerisi.geceEkibi(gun);
+                    List<String> teamMembers = EkipVerisi.kadro[dutyTeam] ?? [];
+                    for (var k in teamMembers) {
                       String d = sec[k] ?? 'A';
-                      fullYoklama.add({'ad': _kisiAdiniGetir(k), 'durum': d, 'grup': _aktifEkip});
+                      fullYoklama.add({'ad': _kisiAdiniGetir(k), 'durum': d, 'grup': dutyTeam});
                     }
                     // 2. Gündüz/Eğitim
                     List<String> gList = [..._gunduzculerGun(gun, grup: 'GÜNDÜZ'), ..._gunduzculerGun(gun, grup: 'EĞİTİM')];
