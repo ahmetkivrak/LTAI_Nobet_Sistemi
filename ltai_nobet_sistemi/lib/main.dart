@@ -143,6 +143,7 @@ class EkipVerisi {
     'GÜNDÜZ': [],
     'EĞİTİM': [],
   };
+  static Map<String, String> personelAdlari = {};
 
   static const Map<String, String> tamIsimler = {
     // A Ekibi
@@ -737,7 +738,7 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     _arsivleriFirebaseDenYukle(); // Firebase'den kalıcı arşivleri çek (Son 12 Ay)
   }
 
-  cloud_firestore.StreamSubscription? _bordSubscription;
+  StreamSubscription? _bordSubscription;
   void _currentBordDinle() {
     _bordSubscription?.cancel();
     String _mbKey = "$_aktifTarihStr (${isGunduzVardiyasi ? 'Gündüz' : 'Gece'})";
@@ -2425,8 +2426,8 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
     }
     
     int aCount = aktifPersonel.length;
-    int baseTur = aCount > 0 ? (totalSlots ~/ tCount) : 0;
-    int rem = aCount > 0 ? (totalSlots % tCount) : 0;
+    int baseTur = aCount > 0 ? (totalS ~/ aCount) : 0;
+    int rem = aCount > 0 ? (totalS % aCount) : 0;
     int majT = aCount > 0 ? (rem <= aCount / 2 ? baseTur : baseTur + 1) : 0;
 
     _hafizayiSifirla();
@@ -4765,9 +4766,9 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
                             margin: const EdgeInsets.only(bottom: 6), padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             decoration: BoxDecoration(color: abs ? Colors.redAccent.withOpacity(0.05) : Colors.white.withOpacity(0.03), borderRadius: BorderRadius.circular(8)),
                             child: Row(children: [
-                              Container(width: 32, child: Text(p['grup'].substring(0, 1), style: TextStyle(color: EkipVerisi.renkler[p['grup']] ?? Colors.grey, fontSize: 10, fontWeight: FontWeight.bold))),
-                              Expanded(child: Text(p['ad'], style: TextStyle(color: abs ? Colors.white70 : Colors.white, fontSize: 13))),
-                              if (abs) Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: _izinRenkleri[p['durum']] ?? Colors.red, borderRadius: BorderRadius.circular(4)), child: Text(p['durum']!, style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)))
+                              Container(width: 32, child: Text((p['grup'] as String? ?? '').substring(0, 1), style: TextStyle(color: EkipVerisi.renkler[p['grup']] ?? Colors.grey, fontSize: 10, fontWeight: FontWeight.bold))),
+                              Expanded(child: Text(p['ad'] ?? '', style: TextStyle(color: abs ? Colors.white70 : Colors.white, fontSize: 13))),
+                              if (abs) Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: _izinRenkleri[p['durum']] ?? Colors.red, borderRadius: BorderRadius.circular(4)), child: Text(p['durum'] ?? '', style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)))
                               else const Icon(Icons.check_circle_outline, color: Colors.greenAccent, size: 16),
                             ]),
                           );
@@ -6066,12 +6067,16 @@ class _AnaSayfaState extends State<AnaSayfa> with SingleTickerProviderStateMixin
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('İPTAL')),
-            if (c.text == EkipVerisi.chefSifreler[_aktifEkip] || c.text == EkipVerisi.masterSifre) {
-              setState(() => _isChef = true);
-              Navigator.pop(ctx);
-              onSuccess();
-            }
-          }, child: const Text('GİRİŞ')),
+          ElevatedButton(
+            onPressed: () {
+              if (c.text == EkipVerisi.chefSifreler[_aktifEkip] || c.text == EkipVerisi.masterSifre) {
+                setState(() => _isChef = true);
+                Navigator.pop(ctx);
+                onSuccess();
+              }
+            },
+            child: const Text('GİRİŞ'),
+          ),
         ],
       ),
     );
